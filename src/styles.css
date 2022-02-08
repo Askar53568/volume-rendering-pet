@@ -1,0 +1,101 @@
+.slider .thumb {
+    -fx-padding: 10 4 10 4;
+    -fx-border-radius: 0;
+    -fx-background-radius: 15;
+    -fx-background-color: #0278D7;
+}
+
+.slider .track {
+    -fx-background-color: #383838;
+}
+
+.button {
+    -fx-background-color: #282828;
+}
+.button:hover {
+    -fx-background-color: #303030;
+}
+
+.text-field{
+    -fx-background-color: #363636;
+    -fx-border-insets: 5;
+    -fx-background-insets: 5;
+    -fx-text-fill: #aeaeae;
+}
+
+.choice-box{
+    -fx-background-color: #363636;
+    -fx-color-label-visible: #aeaeae;
+}
+
+.choice-box .label {
+    -fx-text-fill: #aeaeae;
+}
+
+.choice-box .menu-item > .label {
+    -fx-text-fill: #aeaeae;
+}
+
+.choice-box .menu {
+    -fx-background-color: #363636;
+}
+
+.check-box .box{
+    -fx-background-color: #363636;
+}
+
+.check-box:selected .mark{
+    -fx-background-color: #0278D7;
+}
+
+.choice-box .context-menu {
+    -fx-background-color: #1D1D1D;
+}
+
+.choice-box .menu-item:focused {
+    -fx-background-color: #0278D7;
+}
+
+.choice-box .menu-item:focused > .label {
+    -fx-text-fill: #1D1D1D;
+}
+
+.choice-box .menu-item > .label {
+    -fx-pref-width: 205;
+}
+
+.scroll-pane .scroll-bar {
+    -fx-background-color: #282828;
+}
+
+.scroll-pane .scroll-bar .thumb {
+    -fx-background-color: #1D1D1D;
+    -fx-background-radius: 100;
+}
+
+.scroll-pane .scroll-bar .increment-button {
+    -fx-opacity: 0;
+}
+
+.scroll-pane .scroll-bar .decrement-button  {
+    -fx-opacity: 0;
+}
+
+.scroll-pane .corner  {
+    -fx-opacity: 0;
+}
+
+.scroll-bar:vertical {
+    -fx-pref-width: 13;
+}
+
+.scroll-bar:horizontal {
+    -fx-pref-height: 13;
+}
+
+.scroll-bar .decrement-arrow {
+    -fx-padding:0;
+}
+.scroll-bar .increment-arrow {
+    -fx-padding:0;
+}

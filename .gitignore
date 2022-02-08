@@ -1,0 +1,6 @@
+src/data/CThead
+/out/
+.idea/
+.DS_Store
+src/data/VH_FULL_512_512_1734
+*.iml

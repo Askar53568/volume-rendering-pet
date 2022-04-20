@@ -1,32 +1,15 @@
 package models;
 
-import java.awt.image.ColorModel;
-import java.awt.image.IndexColorModel;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 
-import javafx.application.Application;
-import javafx.beans.value.ChangeListener;
-import javafx.beans.value.ObservableValue;
-import javafx.event.ActionEvent;
-import javafx.event.EventHandler;
-import javafx.scene.Scene;
-import javafx.scene.chart.BarChart;
-import javafx.scene.chart.CategoryAxis;
-import javafx.scene.chart.NumberAxis;
-import javafx.scene.chart.XYChart;
 import javafx.scene.image.*;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.FlowPane;
-import javafx.scene.control.Button;
-import javafx.scene.control.Slider;
 import javafx.scene.paint.Color;
-import javafx.stage.Stage;
-import java.awt.image.IndexColorModel.*;
 
 
 import java.io.*;
 import java.lang.Math;
+
+
 
 import static java.lang.Math.sqrt;
 
@@ -184,6 +167,14 @@ public class Example{
         float gradientM = (float) (sqrt(I + J + K));
         return gradientM;
     }
+    public int secondDerivative(int k, int j, int i){
+        int I1 = (cthead[k][j][i-1]-2*cthead[k][j][i]+cthead[k][j][i + 1]);
+        int J1 = (cthead[k][j-1][i]-2*cthead[k][j][i]+cthead[k][j + 1][i]);
+        int K1 = (cthead[k-1][j][i]-2*cthead[k][j][i]+cthead[k + 1][j][i]);
+
+        int laplacian = I1 + J1 + K1;
+        return laplacian;
+    }
     public void changeColor(){
         color = !this.color;
     }
@@ -264,9 +255,6 @@ public class Example{
                     } else if (intensity < levThreshold) {
                         opacity = 0.0;
                     } else {
-//                        R = classic1DTransferRGB(k,j,i).getR();
-//                        B = classic1DTransferRGB(k,j,i).getB();
-//                        G = classic1DTransferRGB(k,j,i).getG();
                         if(color){
                             R = classic1DTransferRGB(k,j,i).getR();
                             B = classic1DTransferRGB(k,j,i).getB();
@@ -315,9 +303,6 @@ public class Example{
                     } else if (intensity < levThreshold) {
                         opacity = 0.0;
                     } else {
-//                        R = classic1DTransferRGB(k,j,i).getR();
-//                        B = classic1DTransferRGB(k,j,i).getB();
-//                        G = classic1DTransferRGB(k,j,i).getG();
                         if(color){
                             R = classic1DTransferRGB(k,j,i).getR();
                             B = classic1DTransferRGB(k,j,i).getB();
@@ -393,10 +378,50 @@ public class Example{
                         R = alphacolor(Math.abs(intensity/10),dfxi).getRed();
                         B = alphacolor(Math.abs(intensity/10),dfxi).getBlue();
                         G = alphacolor(Math.abs(intensity/10),dfxi).getGreen();
-                    }else {
-//                        R = classic1DTransferRGB(k, j, i).getR();
-//                        B = classic1DTransferRGB(k, j, i).getB();
-//                        G = classic1DTransferRGB(k, j, i).getG();
+                    }
+                    red = clamp((red + (transparency * opacity * 1.0 * R)), 0.0, 1.0);
+                    blue = clamp((blue + (transparency * opacity * 1.0 * B)), 0.0, 1.0);
+                    green = clamp((green + (transparency * opacity * 1.0 * G)), 0.0, 1.0);
+                    transparency = transparency * (1 - opacity);
+                }
+                image_writer.setColor(j, k, Color.color(red, blue, green, 1));
+
+            }
+        }
+    }
+
+    public void laplacianSide(WritableImage image, double threshold) throws IOException {
+        ReadData();
+        int w = (int) image.getWidth(), h = (int) image.getHeight();
+        PixelWriter image_writer = image.getPixelWriter();
+        for (int k = 1; k < h - 1; k++) {
+            for (int j = 1; j < w - 1; j++) {
+                double width = 2.0;
+                double transparency = 1;
+                double red = 0;
+                double blue = 0;
+                double green = 0;
+                double opacity = 0;
+                double R = 1.0;
+                double B = 1.0;
+                double G = 1.0;
+                image_writer.setColor(j, k, Color.color(0, 0, 0, 1.0));
+                for (int i = 1; i < 254; i++) {
+                    int intensity = secondDerivative(k, j, i);
+                    double dfxi = gradientMagnitude(k, j, i);
+                    if (dfxi == 0 && intensity == threshold) {
+                        opacity = 1.0;
+                    } else if (dfxi > 0 &&
+                            intensity <= (threshold + width * dfxi) &&
+                            intensity >= (threshold - width * dfxi)) {
+                        opacity = 1 - (1 / width) * Math.abs(((threshold - intensity) / dfxi));
+                    } else {
+                        opacity = 0.0;
+                    }
+                    if (color) {
+                        R = alphacolor(Math.abs(intensity/10),dfxi).getRed();
+                        B = alphacolor(Math.abs(intensity/10),dfxi).getBlue();
+                        G = alphacolor(Math.abs(intensity/10),dfxi).getGreen();
                     }
                     red = clamp((red + (transparency * opacity * 1.0 * R)), 0.0, 1.0);
                     blue = clamp((blue + (transparency * opacity * 1.0 * B)), 0.0, 1.0);
@@ -448,28 +473,27 @@ public class Example{
                 double R = 1.0;
                 double B = 1.0;
                 double G = 1.0;
+                double colorDefault = 3.0;
                 image_writer.setColor(i, k, Color.color(0, 0, 0, 1.0));
                 for (int j = 1; j < 254; j++) {
                     int intensity = cthead[k][j][i];
-                    double dfxi = gradientMagnitude(k, j, i);
-                    if (dfxi == 0 && intensity == threshold) {
+                    double gradient = gradientMagnitude(k, j, i);
+                    if (gradient == 0 && intensity == threshold) {
                         opacity = 1.0;
-                    } else if (dfxi > 0 &&
-                            intensity <= (threshold + width * dfxi) &&
-                            intensity >= (threshold - width * dfxi)) {
-                        opacity = (1 - (1 / width) * Math.abs((threshold - intensity) / dfxi));
+                    } else if (gradient > 0 &&
+                            intensity <= (threshold + width * gradient) &&
+                            intensity >= (threshold - width * gradient)) {
+                        opacity = (1 - (1 / width) * Math.abs((threshold - intensity) / gradient));
 
                     } else {
                         opacity = 0.0;
                     }
                     if (color) {
-                        R = alphacolor(Math.abs(intensity / 10), dfxi).getRed();
-                        B = alphacolor(Math.abs(intensity / 10), dfxi).getBlue();
-                        G = alphacolor(Math.abs(intensity / 10), dfxi).getGreen();
+                        R = alphacolor(Math.abs(intensity / 10), gradient).getRed();
+                        B = alphacolor(Math.abs(intensity / 10), gradient).getBlue();
+                        G = alphacolor(Math.abs(intensity / 10), gradient).getGreen();
                     }
-//                    R = classic1DTransferRGB(k,j,i).getR();
-//                    B = classic1DTransferRGB(k,j,i).getB();
-//                    G = classic1DTransferRGB(k,j,i).getG();
+
                     red = clamp((red + (transparency * opacity * 1.0 * R)), 0.0, 1.0);
                     blue = clamp((blue + (transparency * opacity * 1.0 * B)), 0.0, 1.0);
                     green = clamp((green + (transparency * opacity * 1.0 * G)), 0.0, 1.0);
@@ -514,9 +538,6 @@ public class Example{
                         B = alphacolor(Math.abs(intensity / 10), dfxi).getBlue();
                         G = alphacolor(Math.abs(intensity / 10), dfxi).getGreen();
                     }
-//                    R = classic1DTransferRGB(k,j,i).getR();
-//                    B = classic1DTransferRGB(k,j,i).getB();
-//                    G = classic1DTransferRGB(k,j,i).getG();
                     red = clamp((red + (transparency * opacity * 1.0 * R)), 0.0, 1.0);
                     blue = clamp((blue + (transparency * opacity * 1.0 * B)), 0.0, 1.0);
                     green = clamp((green + (transparency * opacity * 1.0 * G)), 0.0, 1.0);
@@ -613,8 +634,6 @@ public class Example{
                     pixelWriter.setColor(i, j, colour);
 
                 }
-
-
             }
         }
         //System.out.println("Bilinear");

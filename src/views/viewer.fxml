@@ -31,6 +31,12 @@
                         <Insets bottom="10.0" />
                      </VBox.margin>
                   </Slider>
+                  <Label text="Tent Controller" textFill="#aeaeae" />
+                  <Slider>
+                     <VBox.margin>
+                        <Insets bottom="10.0" />
+                     </VBox.margin>
+                  </Slider>
                   <Button fx:id="midSlideButton" mnemonicParsing="false" prefHeight="27.0" prefWidth="250.0" style="-fx-padding: 10;" text="Default Values" textFill="#aeaeae" VBox.vgrow="ALWAYS">
                      <font>
                         <Font name="System Bold" size="13.0" />

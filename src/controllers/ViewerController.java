@@ -76,7 +76,6 @@ public class ViewerController {
         secondView.setImage(front_image);
         thirdView.setImage(side_image);
 
-        //firstViewSlider.setMax(ctViewer.getCtScan().getCT_z_axis() - 1);
         secondViewSlider.setMax(4500);
         thirdViewSlider.setMax(1500);
 
@@ -112,18 +111,11 @@ public class ViewerController {
             }
         });
 
-//        firstViewSlider.valueProperty().addListener((observable, oldValue, newValue) -> {
-//            ctViewer.drawSlice(top_image, "top", newValue.intValue());
-//            sliderValueStyle(firstViewSlider);
-//            reset();
-//            isMIP = false;
-//        });
-
         secondViewSlider.valueProperty().addListener((observable, oldValue, newValue) -> {
             //ctViewer.drawSlice(front_image,"front", newValue.intValue());
             try {
-                example.opacityComputeSideNoReturn(side_image, newValue.doubleValue());
-                example.opacityComputeFront(front_image, newValue.doubleValue());
+                example.laplacianSide(side_image, newValue.doubleValue());
+                example.opacityComputeSideNoReturn(front_image, newValue.doubleValue());
                 example.opacityComputeTop(top_image, newValue.doubleValue());
                 reset();
             } catch (IOException e) {
@@ -135,7 +127,6 @@ public class ViewerController {
         });
 
         thirdViewSlider.valueProperty().addListener((observable, oldValue, newValue) -> {
-            //ctViewer.drawSlice(side_image, "side", newValue.intValue());
             try {
                 example.levoyTentFront(front_image, newValue.doubleValue());
                 example.levoyTentSide(side_image, newValue.doubleValue());
@@ -181,16 +172,6 @@ public class ViewerController {
             } catch (IOException ex) {
                 ex.printStackTrace();
             }
-//            if (!isMIP) {
-//                ctViewer.maximumIntensityProjection(top_image, "top");
-//                ctViewer.maximumIntensityProjection(side_image, "side");
-//                ctViewer.maximumIntensityProjection(front_image, "front");
-//                reset();
-//                isMIP = true;
-//            } else {
-//                isMIP = false;
-//                midSlideButton.fire();
-//            }
         });
         colorButton.setOnAction(e -> {
             String value = example.getColor() ? "Off" : "On";

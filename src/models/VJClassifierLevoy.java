@@ -209,27 +209,6 @@ public class VJClassifierLevoy extends VJClassifier
 
 
 
-//    protected void defaultLUT()
-//    {
-//        lut = new byte[(int) Math.pow(2, nrIndexBits)*3];
-//        for (int index = 0; index < (int) Math.pow(2, nrIndexBits); index++)
-//        {
-//            if (index == 0)
-//            {
-//                // white
-//                lut[index*3+0] = (byte) 255;
-//                lut[index*3+1] = (byte) 255;
-//                lut[index*3+2] = (byte) 255;
-//            }
-//            else
-//            {
-//                Color c = Color.getHSBColor(index/255f, 1f, 1f);
-//                lut[index*3+0] = (byte) c.getRed();
-//                lut[index*3+1] = (byte) c.getGreen();
-//                lut[index*3+2] = (byte) c.getBlue();
-//            }
-//        }
-//    }
     /**
      * Set the LUT to a user-defined LUT. Size of user-defined LUT must be same as
      * classifier LUT.

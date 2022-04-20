@@ -31,6 +31,7 @@ public class ViewerController {
     public Slider secondViewSlider;
     public Slider thirdViewSlider;
     public Slider opacitySlider;
+    public Slider tresholdSlider;
     public Button volumeRenderButton;
     public Button midSlideButton;
     public StackPane firstViewBackground;
@@ -43,6 +44,7 @@ public class ViewerController {
     public Button gradientInterpolationButton;
     public Button mipButton;
     public Button colorButton;
+    public Button popUpButton;
     public VBox volRendMenu;
     public VBox lightMenu;
     public ChoiceBox<String> tfChoice;
@@ -77,6 +79,8 @@ public class ViewerController {
         thirdView.setImage(side_image);
 
         secondViewSlider.setMax(4500);
+        tresholdSlider.setMax(1200);
+        tresholdSlider.setMin(-1000);
         thirdViewSlider.setMax(1500);
 
 
@@ -98,6 +102,16 @@ public class ViewerController {
             secondViewSlider.valueProperty().setValue(1000);
             thirdViewSlider.valueProperty().setValue(0);
         });
+
+        popUpButton.setOnAction(event -> {
+            try {
+                example.laplacianSide(side_image, 2300.0f);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            example.resizePopUp(side_image, 600,400);
+        });
+
 
         volumeRenderButton.setOnAction(event -> {
             if (!isVolumeRendered) {
@@ -143,6 +157,12 @@ public class ViewerController {
             ctViewer.setOpacity((double) (newValue) / 100.0);
             volumeRender();
             sliderValueStyle(opacitySlider);
+        });
+
+        tresholdSlider.valueProperty().addListener((observable, oldValue, newValue) -> {
+            ctViewer.setTreshold((double) (newValue));
+            volumeRender();
+            sliderValueStyle(tresholdSlider);
         });
 
         lightSource.valueProperty().addListener((observable, oldValue, newValue) -> {
@@ -245,6 +265,11 @@ public class ViewerController {
     public Slider getOpacitySlider() {
         return opacitySlider;
     }
+
+    public Slider getTresholdSlider() {
+        return tresholdSlider;
+    }
+
 
     /**
      * Gets the button that displays middle slide.

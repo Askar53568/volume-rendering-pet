@@ -2,8 +2,11 @@ package models;
 
 import java.io.FileInputStream;
 
+import javafx.scene.Scene;
 import javafx.scene.image.*;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.paint.Color;
+import javafx.stage.Stage;
 
 
 import java.io.*;
@@ -58,12 +61,6 @@ public class Example{
         return Math.max(min, Math.min(max, value));
     }
 
-    public void swap(float a, float b) {
-        float temp;
-        temp = a;
-        a = b;
-        b = temp;
-    }
 
     //Function to read in the cthead data set
     public void ReadData() throws IOException {
@@ -128,6 +125,18 @@ public class Example{
             }
         }
         return lut;
+    }
+
+    public void resizePopUp(WritableImage image, int newWidth, int newHeight) {
+        Stage window = new Stage();
+        ImageView resizedImage = new ImageView(biLinear(image, 3));
+        window.setTitle("Resized with Bilinear");
+        window.setTitle("Resized");
+        FlowPane root = new FlowPane();
+        root.getChildren().addAll(resizedImage);
+        Scene sizeScene = new Scene(root, newWidth - 1, newHeight - 1);// to remove the extra pixel on the right and bottom
+        window.setScene(sizeScene);
+        window.show();
     }
     protected double  opacityCompute(double  dfxi, double  intensity, double  threshold, double  width)
     {
@@ -419,9 +428,9 @@ public class Example{
                         opacity = 0.0;
                     }
                     if (color) {
-                        R = alphacolor(Math.abs(intensity/10),dfxi).getRed();
-                        B = alphacolor(Math.abs(intensity/10),dfxi).getBlue();
-                        G = alphacolor(Math.abs(intensity/10),dfxi).getGreen();
+                        R = alphacolor(Math.abs(intensity/100),dfxi).getRed();
+                        B = alphacolor(Math.abs(intensity/100),dfxi).getBlue();
+                        G = alphacolor(Math.abs(intensity/100),dfxi).getGreen();
                     }
                     red = clamp((red + (transparency * opacity * 1.0 * R)), 0.0, 1.0);
                     blue = clamp((blue + (transparency * opacity * 1.0 * B)), 0.0, 1.0);

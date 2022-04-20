@@ -45,6 +45,14 @@
                         <Insets bottom="7.0" />
                      </VBox.margin>
                   </Button>
+                  <Button fx:id="popUpButton" mnemonicParsing="false" prefHeight="40.0" prefWidth="250.0" style="-fx-padding: 10;" text="Pop up" textFill="#aeaeae">
+                     <font>
+                        <Font name="System Bold" size="12.0" />
+                     </font>
+                     <VBox.margin>
+                        <Insets bottom="7.0" />
+                     </VBox.margin>
+                  </Button>
                   <Button fx:id="colorButton" mnemonicParsing="false" prefHeight="27.0" prefWidth="250.0" style="-fx-padding: 10;" text="Color" textFill="#aeaeae" VBox.vgrow="ALWAYS">
                      <font>
                         <Font name="System Bold" size="13.0" />
@@ -97,6 +105,8 @@
                            <Insets bottom="10.0" />
                         </VBox.margin>
                      </Slider>
+                     <Label alignment="TOP_LEFT" text="Treshold" textFill="#aeaeae" />
+                     <Slider fx:id="tresholdSlider" layoutX="16.0" layoutY="87.0" maxWidth="-Infinity" prefWidth="240.0" value="12.0" />
                      <Button fx:id="gradientButton" mnemonicParsing="false" prefHeight="27.0" prefWidth="240.0" style="-fx-padding: 10;" text="Gradient Shading" textFill="#aeaeae" VBox.vgrow="ALWAYS">
                         <font>
                            <Font name="System Bold" size="13.0" />

@@ -6,7 +6,6 @@ import java.util.stream.IntStream;
 
 /**
  * Represents a ct scan viewer and the algorithms that can be carried out on them.
- * @author Josh Codd
  */
 public class CTViewer {
     private final int TOP_WIDTH;
@@ -15,12 +14,14 @@ public class CTViewer {
     private final int FRONT_HEIGHT;
     private final int SIDE_WIDTH;
     private final int SIDE_HEIGHT;
-    private final double BONE_VALUE = 400;
+    //private final double BONE_VALUE = -300;
     private final Volume ctScan;
+    private Example example;
     private double opacity = 0.12;
     private boolean isGradient = false;
     private boolean isGradientInterpolation = false;
     private double lightSourceX = 83;
+    private double threshold = 1000.0;
 
     /**
      * Creates a CT viewer.
@@ -124,7 +125,7 @@ public class CTViewer {
 
                 for (int k = 0; k < depth && !hitBone; k++) {
                     short currentVoxel = getVoxel(view, i, j, k);
-                    if (currentVoxel >= BONE_VALUE && isGradient) {
+                    if (currentVoxel >= threshold && isGradient) {
                         L = getDiffuseLighting(view, i, j, k, currentVoxel, height, width, depth);
                         hitBone = true;
                     }
@@ -162,11 +163,11 @@ public class CTViewer {
         Vector surfaceNormal = getSurfaceNormal(view, x, y, z, height, width, depth);
         Vector intersection = new Vector(x, y, z);
 
-        if (isGradientInterpolation && currentVoxel != BONE_VALUE && z > 0) {
+        if (isGradientInterpolation && currentVoxel != threshold && z > 0) {
             int prevRay = z - 1;
             short prevVoxel = getVoxel(view, x, y, prevRay);
             double exactZ =
-                    linearInterpolationPosition(BONE_VALUE, prevVoxel, currentVoxel, prevRay, z);
+                    linearInterpolationPosition(threshold, prevVoxel, currentVoxel, prevRay, z);
             surfaceNormal = getSurfaceNormal(view, x, y, exactZ, height, width, depth);
             intersection.setC(exactZ);
         }
@@ -373,6 +374,34 @@ public class CTViewer {
         return new double[]{R, G, B, O};
     }
 
+    private double[] transferFunctionTent(short voxel){
+        double R, G, B, O, levWidth;
+        levWidth = 0.8;
+        if ((voxel >= threshold) &&
+                (voxel < (threshold + levWidth))) {
+            O = ((float) voxel - threshold) / levWidth;
+        } else if (voxel < threshold) {
+            O = 0.0;
+        }else{
+            O = opacity;
+        }
+        if ((voxel > -299) && (voxel < 50)) {
+            R = 1.0;
+            G = 0.79;
+            B = 0.6;
+        } else if (voxel > 300) {
+            R = 1;
+            G = 1;
+            B = 1;
+        } else {
+            R = 0;
+            G = 0;
+            B = 0;
+        }
+        return new double[]{R, G, B, O};
+    }
+
+
     /**
      * Handles which transfer function to use based on the name passed in.
      * @param voxel The voxel to use in the transfer function.
@@ -381,7 +410,7 @@ public class CTViewer {
      */
     private double[] getTransferFunction(short voxel, String tfName){
         if (tfName.equals("TF1")){
-            return transferFunction(voxel);
+            return transferFunctionTent(voxel);
         } else {
             return transferFunctionTwo(voxel);
         }
@@ -402,6 +431,8 @@ public class CTViewer {
     public void setOpacity(double opacity) {
         this.opacity = opacity;
     }
+
+    public void setTreshold(double treshold){this.threshold = treshold;}
 
     /**
      * Sets if gradient shading should be used.

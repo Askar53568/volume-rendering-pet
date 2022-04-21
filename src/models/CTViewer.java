@@ -4,6 +4,8 @@ import javafx.scene.image.WritableImage;
 import javafx.scene.paint.Color;
 import java.util.stream.IntStream;
 
+import static java.lang.Math.sqrt;
+
 /**
  * Represents a ct scan viewer and the algorithms that can be carried out on them.
  */
@@ -134,7 +136,10 @@ public class CTViewer {
                         final int RED = 0;
                         final int GREEN = 1;
                         final int BLUE = 2;
-                        double[] colour = getTransferFunction(currentVoxel, transferFunction);
+                        //TODO: sample at non-integer positions for the gradient magnitude
+                        // make surface normal exact
+                        double dfxi = getSurfaceNormal(view,i,j,k,height,width,depth).getLength();
+                        double[] colour = getTransferFunction(currentVoxel, transferFunction, dfxi);
                         double sigma = colour[3];
                         redAccum = Math.min(Math.max(redAccum + (alphaAccum * sigma * L * colour[RED]), 0), 1);
                         greenAccum = Math.min(Math.max(greenAccum + (alphaAccum * sigma * L * colour[GREEN]),0), 1);
@@ -163,7 +168,7 @@ public class CTViewer {
         Vector surfaceNormal = getSurfaceNormal(view, x, y, z, height, width, depth);
         Vector intersection = new Vector(x, y, z);
 
-        if (isGradientInterpolation && currentVoxel != threshold && z > 0) {
+        if (isGradientInterpolation && z > 0) {
             int prevRay = z - 1;
             short prevVoxel = getVoxel(view, x, y, prevRay);
             double exactZ =
@@ -243,6 +248,17 @@ public class CTViewer {
         }
     }
 
+//    public double getGradientMagnitude(String view, int k , int j , int i){
+//        double I,J,K, gradientMagnitude = 0;
+//        if(k!=0&&j!=0&&i!=0) {
+//            I = Math.pow((getRealVoxel(view, k, j, i + 1) - getRealVoxel(view, k, j, i - 1)), 2);
+//            J = Math.pow((getRealVoxel(view, k, j + 1, i) - getRealVoxel(view, k, j - 1, i)), 2);
+//            K = Math.pow((getRealVoxel(view, k + 1, j, i) - getRealVoxel(view, k - 1, j, i)), 2);
+//            gradientMagnitude = (sqrt(I + J + K));
+//        }
+//        return gradientMagnitude;
+//    }
+
     /**
      * Calculates the surface normal for the current voxel at all integer positions.
      * @param view The scan direction. i.e top, front or side
@@ -282,6 +298,7 @@ public class CTViewer {
         zGradient = getGradient(view, currentVoxel, x, y, z-1, x, y,z+1,1,depth-2, z);
         return new Vector(xGradient, yGradient, zGradient);
     }
+
 
     /**
      * Gets the voxel at a non integer position z.
@@ -401,6 +418,26 @@ public class CTViewer {
         return new double[]{R, G, B, O};
     }
 
+    private double[] transferFunction2D(short voxel, double dfxi){
+        double R, G, B, O, levWidth;
+        levWidth = 2;
+        if (dfxi == 0 && voxel == threshold) {
+            O = 1.0;
+        } else if (dfxi > 0 && voxel >= (threshold - levWidth * dfxi) && voxel <= (threshold + levWidth * dfxi)) {
+            O = (1 - (1 / levWidth) * Math.abs((threshold - voxel) / dfxi));
+            R = 0;
+            G = 0;
+            B = 0;
+        } else {
+            O = 0.0;
+        }
+            R = 1;
+            G = 1;
+            B = 1;
+        return new double[]{R, G, B, O};
+    }
+
+
 
     /**
      * Handles which transfer function to use based on the name passed in.
@@ -408,11 +445,11 @@ public class CTViewer {
      * @param tfName The name of the transfer function to use.
      * @return The result from specified TF.
      */
-    private double[] getTransferFunction(short voxel, String tfName){
+    private double[] getTransferFunction(short voxel, String tfName, double dfxi){
         if (tfName.equals("TF1")){
             return transferFunctionTent(voxel);
         } else {
-            return transferFunctionTwo(voxel);
+            return transferFunction2D(voxel, dfxi);
         }
     }
 

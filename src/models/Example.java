@@ -129,7 +129,7 @@ public class Example{
 
     public void resizePopUp(WritableImage image, int newWidth, int newHeight) {
         Stage window = new Stage();
-        ImageView resizedImage = new ImageView(biLinear(image, 3));
+        ImageView resizedImage = new ImageView(biLinear(image, 10));
         window.setTitle("Resized with Bilinear");
         window.setTitle("Resized");
         FlowPane root = new FlowPane();

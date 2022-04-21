@@ -78,8 +78,9 @@ public class ViewerController {
         secondView.setImage(front_image);
         thirdView.setImage(side_image);
 
+
         secondViewSlider.setMax(4500);
-        tresholdSlider.setMax(1200);
+        tresholdSlider.setMax(4500);
         tresholdSlider.setMin(-1000);
         thirdViewSlider.setMax(1500);
 

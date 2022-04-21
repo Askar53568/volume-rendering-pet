@@ -122,4 +122,10 @@ public class Vector {
     public void setC(double c) {
         this.c = c;
     }
+
+    public double getLength() {
+        double normalValue = Math.sqrt((getA() * getA()) + (getB() * getB())
+                + (getC() * getC()));
+        return normalValue;
+    }
 }

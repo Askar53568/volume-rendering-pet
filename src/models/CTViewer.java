@@ -24,6 +24,7 @@ public class CTViewer {
     private boolean isGradientInterpolation = false;
     private double lightSourceX = 83;
     private double threshold = 1000.0;
+    private double levoyWidth = 2.0;
 
     /**
      * Creates a CT viewer.
@@ -116,8 +117,8 @@ public class CTViewer {
         PixelWriter writer = image1.getPixelWriter();
         int depth = (view.equals("top")) ? ctScan.getCT_z_axis() : ctScan.getCT_x_axis();
 
-        IntStream.range(0, height).parallel().forEach(j -> {
-            IntStream.range(0, width).parallel().forEach(i -> {
+        IntStream.range(1, height-1).parallel().forEach(j -> {
+            IntStream.range(1, width-1).parallel().forEach(i -> {
                 double alphaAccum = 1;
                 double redAccum = 0;
                 double greenAccum = 0;
@@ -125,7 +126,7 @@ public class CTViewer {
                 boolean hitBone = false;
                 double L = 1;
 
-                for (int k = 0; k < depth && !hitBone; k++) {
+                for (int k = 1; k < depth-1 && !hitBone; k++) {
                     short currentVoxel = getVoxel(view, i, j, k);
                     if (currentVoxel >= threshold && isGradient) {
                         L = getDiffuseLighting(view, i, j, k, currentVoxel, height, width, depth);
@@ -133,24 +134,48 @@ public class CTViewer {
                     }
 
                     if (!isGradient || hitBone) {
-                        final int RED = 0;
-                        final int GREEN = 1;
-                        final int BLUE = 2;
-                        //TODO: sample at non-integer positions for the gradient magnitude
-                        // make surface normal exact
-                        double dfxi = getSurfaceNormal(view,i,j,k,height,width,depth).getLength();
-                        double[] colour = getTransferFunction(currentVoxel, transferFunction, dfxi);
-                        double sigma = colour[3];
-                        redAccum = Math.min(Math.max(redAccum + (alphaAccum * sigma * L * colour[RED]), 0), 1);
-                        greenAccum = Math.min(Math.max(greenAccum + (alphaAccum * sigma * L * colour[GREEN]),0), 1);
-                        blueAccum = Math.min(Math.max(blueAccum + (alphaAccum * sigma * L * colour[BLUE]),0), 1);
-                        alphaAccum = alphaAccum * (1 - sigma);
+                            final int RED = 0;
+                            final int GREEN = 1;
+                            final int BLUE = 2;
+                            double dfxi = getExactGradient(view,currentVoxel,i,j,k,height,width,depth);
+                            double secondDerivative = getSecondOrderDerivative(view, i, j, k);
+                            double[] colour = getTransferFunction(currentVoxel, transferFunction, dfxi, secondDerivative);
+                            double sigma = colour[3];
+                            redAccum = Math.min(Math.max(redAccum + (alphaAccum * sigma * L * colour[RED]), 0), 1);
+                            greenAccum = Math.min(Math.max(greenAccum + (alphaAccum * sigma * L * colour[GREEN]), 0), 1);
+                            blueAccum = Math.min(Math.max(blueAccum + (alphaAccum * sigma * L * colour[BLUE]), 0), 1);
+                            alphaAccum = alphaAccum * (1 - sigma);
                     }
                 }
                 writer.setColor(i, j, Color.color(redAccum, greenAccum, blueAccum, 1));
             });
         });
         return image1;
+    }
+
+    public double getExactGradient(String view, short currentVoxel, int x, int y, int z, int height, int width, int depth){
+        double gradientMag = 0;
+        Vector surfaceNormal = getSurfaceNormal(view, x, y, z, height, width, depth);
+        if (z > 0) {
+                int prevRay = z - 1;
+                short prevVoxel = getVoxel(view, x, y, prevRay);
+                if (prevVoxel != currentVoxel) {
+                    double exactZ = linearInterpolationPosition(view, threshold + opacity, prevVoxel, currentVoxel, prevRay, z);
+                    surfaceNormal = getSurfaceNormal(view, x, y, exactZ, height, width, depth);
+                    gradientMag = surfaceNormal.getLength();
+                }
+        }
+
+
+        return gradientMag;
+    }
+
+    public double getSecondOrderDerivative(String view, int x, int y, int z){
+           double laplacianX = getVoxel(view, x, y, z - 1) - 2 * getVoxel(view, x, y, z) + getVoxel(view, x, y, z + 1);
+           double laplacianY = getVoxel(view, x, y - 1, z) - 2 * getVoxel(view, x, y, z) + getVoxel(view, x, y + 1, z);
+           double laplacianZ = getVoxel(view, x - 1, y, z) - 2 * getVoxel(view, x, y, z) + getVoxel(view, x + 1, y, z);
+        double laplacian = laplacianX + laplacianY + laplacianZ;
+        return laplacian;
     }
 
     /**
@@ -172,7 +197,7 @@ public class CTViewer {
             int prevRay = z - 1;
             short prevVoxel = getVoxel(view, x, y, prevRay);
             double exactZ =
-                    linearInterpolationPosition(threshold, prevVoxel, currentVoxel, prevRay, z);
+                    linearInterpolationPosition(view, threshold, prevVoxel, currentVoxel, prevRay, z);
             surfaceNormal = getSurfaceNormal(view, x, y, exactZ, height, width, depth);
             intersection.setC(exactZ);
         }
@@ -248,16 +273,7 @@ public class CTViewer {
         }
     }
 
-//    public double getGradientMagnitude(String view, int k , int j , int i){
-//        double I,J,K, gradientMagnitude = 0;
-//        if(k!=0&&j!=0&&i!=0) {
-//            I = Math.pow((getRealVoxel(view, k, j, i + 1) - getRealVoxel(view, k, j, i - 1)), 2);
-//            J = Math.pow((getRealVoxel(view, k, j + 1, i) - getRealVoxel(view, k, j - 1, i)), 2);
-//            K = Math.pow((getRealVoxel(view, k + 1, j, i) - getRealVoxel(view, k - 1, j, i)), 2);
-//            gradientMagnitude = (sqrt(I + J + K));
-//        }
-//        return gradientMagnitude;
-//    }
+
 
     /**
      * Calculates the surface normal for the current voxel at all integer positions.
@@ -338,8 +354,15 @@ public class CTViewer {
      * @param x2 The following integer position.
      * @return The non integer position of the specified value.
      */
-    public double linearInterpolationPosition(double v, double v1, double v2, int x1, int x2) {
-        return x1 + (x2 - x1) * ((v - v1)/(v2 - v1));
+    public double linearInterpolationPosition(String view, double v, double v1, double v2, int x1, int x2) {
+        int boundary =113;
+        if (view.equals("top")) {
+            boundary = 112;
+        } else {
+            boundary = 255;
+        }
+        double exactZ = x1 + (x2 - x1) * ((v - v1)/(v2 - v1));
+        return exactZ > 0 && exactZ < boundary? exactZ : 0;
     }
 
     /**
@@ -406,11 +429,15 @@ public class CTViewer {
             R = 1.0;
             G = 0.79;
             B = 0.6;
+        }  else if ((voxel > 49) && (voxel < 301)) {
+            R = 0.54;
+            G = 0;
+            B = 0;
         } else if (voxel > 300) {
             R = 1;
             G = 1;
             B = 1;
-        } else {
+        }else {
             R = 0;
             G = 0;
             B = 0;
@@ -425,9 +452,37 @@ public class CTViewer {
             O = 1.0;
         } else if (dfxi > 0 && voxel >= (threshold - levWidth * dfxi) && voxel <= (threshold + levWidth * dfxi)) {
             O = (1 - (1 / levWidth) * Math.abs((threshold - voxel) / dfxi));
+        } else {
+            O = 0.0;
+        }
+        if ((voxel > -299) && (voxel < 50)) {
+            R = 1.0;
+            G = 0.79;
+            B = 0.6;
+        }  else if ((voxel > 49) && (voxel < 301)) {
+            R = 0.54;
+            G = 0;
+            B = 0;
+        } else if (voxel > 300) {
+            R = 1;
+            G = 1;
+            B = 1;
+        }else {
             R = 0;
             G = 0;
             B = 0;
+        }
+        return new double[]{R, G, B, O};
+    }
+
+    private double[] transferFunction3D(double voxel, double dfxi, double secondDerivative){
+        double R, G, B, O, levWidth;
+        levWidth = 2;
+        //voxel = secondDerivative;
+        if (dfxi == 0 && voxel == threshold) {
+            O = 1.0;
+        } else if (dfxi > 0 && voxel >= (threshold - levWidth * dfxi) && voxel <= (threshold + levWidth * dfxi)) {
+            O = (1 - (1 / levWidth) * (1/(secondDerivative)) * Math.abs((threshold - voxel) / dfxi));
         } else {
             O = 0.0;
         }
@@ -445,21 +500,16 @@ public class CTViewer {
      * @param tfName The name of the transfer function to use.
      * @return The result from specified TF.
      */
-    private double[] getTransferFunction(short voxel, String tfName, double dfxi){
+    private double[] getTransferFunction(short voxel, String tfName, double dfxi, double secondDerivative){
         if (tfName.equals("TF1")){
             return transferFunctionTent(voxel);
-        } else {
+        } else if (tfName.equals("TF2")){
             return transferFunction2D(voxel, dfxi);
+        } else {
+            return transferFunction3D(voxel, dfxi, secondDerivative);
         }
     }
 
-    /**
-     * Gets the volume of this viewer.
-     * @return The volume.
-     */
-    public Volume getCtScan() {
-        return ctScan;
-    }
 
     /**
      * Sets the opacity of the skin for the transfer function.

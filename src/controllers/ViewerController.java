@@ -16,12 +16,7 @@ import views.Menu;
 
 import java.io.IOException;
 
-/**
- * Controller class for the viewer interface.
- * Handles all user input and displays scans.
- *
- * @author Josh Codd.
- */
+
 public class ViewerController {
     @FXML
     public ImageView firstView;
@@ -56,6 +51,7 @@ public class ViewerController {
     private boolean isVolumeRendered = false;
     private boolean isMIP = false;
     private String transferFunction = "TF1";
+    private String getTransferFunction3D = "TF3D";
 
     WritableImage top_image;
     WritableImage front_image;
@@ -87,6 +83,7 @@ public class ViewerController {
 
         tfChoice.getItems().add("TF1");
         tfChoice.getItems().add("TF2");
+        tfChoice.getItems().add("TF3D");
         tfChoice.setValue("TF1");
 
         tfChoice.setOnAction(event -> {

@@ -9,10 +9,6 @@ import javafx.stage.Stage;
 import models.CTViewer;
 import java.util.Objects;
 
-/**
- * Class to display and load a viewer to screen.
- * @author Josh Codd.
- */
 public class Viewer {
 
     /**

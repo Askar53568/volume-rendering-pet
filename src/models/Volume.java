@@ -2,10 +2,6 @@ package models;
 import java.lang.*;
 import java.io.*;
 
-/**
- * Represents a volume. That is, a 3D data set.
- * @author Josh Codd.
- */
 public class Volume {
     private short[][][] volume;
     private short min, max;

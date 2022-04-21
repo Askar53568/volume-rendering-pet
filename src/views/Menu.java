@@ -7,10 +7,6 @@ import javafx.scene.control.ButtonType;
 import javafx.stage.Stage;
 import java.util.Objects;
 
-/**
- * Displays and loads a menu interface to screen.
- * @author Josh Codd.
- */
 public class Menu {
     Parent root;
     MenuController controller;

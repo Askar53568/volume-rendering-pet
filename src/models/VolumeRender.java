@@ -9,7 +9,7 @@ import java.util.stream.IntStream;
 /**
  * Represents a ct scan viewer and the algorithms that can be carried out on them.
  */
-public class CTViewer {
+public class VolumeRender {
     private final int TOP_WIDTH;
     private final int TOP_HEIGHT;
     private final int FRONT_WIDTH;
@@ -19,11 +19,10 @@ public class CTViewer {
     private final Volume ctScan;
     RGBClassifier levoyClass = new RGBClassifier();
     byte[] lut = levoyClass.defaultLUT();
-    private Example example;
     private boolean tfColor = false;
     private double opacity = 0.12;
     private boolean isGradient = false;
-    private boolean isGradientInterpolation = true;
+    private boolean isGradientInterpolation = false;
     private double lightSourceX = 83;
     private double threshold = 1000.0;
     private double levoyWidth = 2.0;
@@ -33,7 +32,7 @@ public class CTViewer {
      *
      * @param volume The volume to use/display.
      */
-    public CTViewer(Volume volume) {
+    public VolumeRender(Volume volume) {
         this.ctScan = volume;
         this.TOP_WIDTH = volume.getCT_x_axis();
         this.TOP_HEIGHT = volume.getCT_y_axis();
@@ -144,7 +143,12 @@ public class CTViewer {
                         final int RED = 0;
                         final int GREEN = 1;
                         final int BLUE = 2;
-                        double dfxi = getExactGradient(view, currentVoxel, i, j, k, height, width, depth);
+                        double dfxi = 0.0;
+                        if(tfColor) {
+                            dfxi = getSurfaceNormal(view, i, j, k, height, width, depth).getLength();
+                        } else{
+                            dfxi = getExactGradient(view, currentVoxel, i, j, k, height, width, depth);
+                        }
                         double secondDerivative = getSecondOrderDerivative(view, i, j, k);
                         double[] colour = getTransferFunction(currentVoxel, transferFunction, dfxi, secondDerivative);
                         double sigma = colour[3];
@@ -177,6 +181,14 @@ public class CTViewer {
         return gradientMag;
     }
 
+    /**
+     * Calculates the frequently used second order derivative operator - Laplacian operator
+     * @param view The direction to view the scan/dataset from. i.e front, side or top.
+     * @param x The x axis location of the pixel.
+     * @param y The y axis location of the pixel.
+     * @param z The z-axis or ray depth location of the pixel.
+     * @return the laplacian operator for the specified position.
+     */
     public double getSecondOrderDerivative(String view, int x, int y, int z) {
         double laplacianX = getVoxel(view, x, y, z - 1) - 2 * getVoxel(view, x, y, z) + getVoxel(view, x, y, z + 1);
         double laplacianY = getVoxel(view, x, y - 1, z) - 2 * getVoxel(view, x, y, z) + getVoxel(view, x, y + 1, z);
@@ -200,6 +212,14 @@ public class CTViewer {
     public double getDiffuseLighting(String view, int x, int y, int z, int currentVoxel, int height, int width, int depth) {
         Vector surfaceNormal = getSurfaceNormal(view, x, y, z, height, width, depth);
         Vector intersection = new Vector(x, y, z);
+        if (isGradientInterpolation && z > 0) {
+            int prevRay = z - 1;
+            short prevVoxel = getVoxel(view, x, y, prevRay);
+            double exactZ =
+                    linearInterpolationPosition(view, threshold, prevVoxel, currentVoxel, prevRay, z);
+            surfaceNormal = getSurfaceNormal(view, x, y, exactZ, height, width, depth);
+            intersection.setC(exactZ);
+        }
 
         final double LIGHT_SOURCE_Y = (double) ctScan.getCT_z_axis() / 4;
         final double LIGHT_SOURCE_Z = ctScan.getCT_x_axis();
@@ -448,7 +468,7 @@ public class CTViewer {
         return new double[]{R, G, B, O};
     }
 
-    public ColorComposer alphacolor(int index, double gradientMag) {
+    public ColorComposer colorClassifier(int index, double gradientMag) {
         double nrMagnitudeBits = 7347825;
         int nrIntensityBits = 3365;
         int maskMagnitude = (int) Math.pow(2, nrMagnitudeBits) - 1;
@@ -465,21 +485,21 @@ public class CTViewer {
                 (lut[index * 3 + 2] & 0xff));
     }
 
-    private double[] transferFunction2D(short voxel, double dfxi) {
+    private double[] transferFunction2D(short voxel, double gradientMagnitude) {
         double R = 0, G = 0, B = 0, O, levWidth;
         levWidth = 2;
-        if (dfxi == 0 && voxel == threshold) {
+        if (gradientMagnitude == 0 && voxel == threshold) {
             O = 1.0;
-        } else if (dfxi > 0 && voxel >= (threshold - levWidth * dfxi) && voxel <= (threshold + levWidth * dfxi)) {
-            O = (1 - (1 / levWidth) * Math.abs((threshold - voxel) / dfxi));
+        } else if (gradientMagnitude > 0 && voxel >= (threshold - levWidth * gradientMagnitude) && voxel <= (threshold + levWidth * gradientMagnitude)) {
+            O = (1 - (1 / levWidth) * Math.abs((threshold - voxel) / gradientMagnitude));
         } else {
             O = 0.0;
         }
         if (tfColor) {
             try {
-                R = alphacolor((int) Math.abs(voxel / threshold), dfxi).getRed();
-                B = alphacolor((int) Math.abs(voxel / threshold), dfxi).getBlue();
-                G = alphacolor((int) Math.abs(voxel / threshold), dfxi).getGreen();
+                R = colorClassifier(Math.abs(voxel / 10), gradientMagnitude).getRed();
+                B = colorClassifier(Math.abs(voxel / 10), gradientMagnitude).getBlue();
+                G = colorClassifier(Math.abs(voxel / 10), gradientMagnitude).getGreen();
             } catch (Exception e) {
                 System.out.println("Error");
             }
@@ -489,8 +509,15 @@ public class CTViewer {
         return new double[]{R, G, B, O};
     }
 
+    /**
+     * 1-dimensional color transfer function derived from the Hounsefield scale
+     * @param voxel The voxel to get RGB value for.
+     * @param opacity Opacity of the specific voxel derived from the alpha function
+     * @return RGB values for the pixel.
+     */
     private double[] hounsefieldColorTF(short voxel, double opacity) {
         double R = 0, G = 0, B = 0;
+
         if ((voxel > -299) && (voxel < 50)) {
             R = 1.0;
             G = 0.79;
@@ -512,6 +539,15 @@ public class CTViewer {
         return colors;
     }
 
+    /**
+     * Three-dimensional transfer function derived from Levoy and Kniss et al. papers
+     * the 2nd dimension is the gradient magnitude
+     * the 3rd dimension is the second derivative - the laplacian operator
+     * @param voxel The voxel to get alpha value for.
+     * @param dfxi The gradient magnitude of the specified voxel
+     * @param secondDerivative the second derivative for the specified voxel
+     * @return alpha value for the pixel.
+     */
     private double[] transferFunction3D(short voxel, double dfxi, double secondDerivative) {
         double R = 0, G = 0, B = 0, O, levWidth;
         levWidth = 2;
@@ -524,9 +560,9 @@ public class CTViewer {
         }
         if (tfColor) {
             try {
-                R = alphacolor((int) Math.abs(voxel / 10), dfxi).getRed();
-                B = alphacolor((int) Math.abs(voxel / 10), dfxi).getBlue();
-                G = alphacolor((int) Math.abs(voxel / 10), dfxi).getGreen();
+                R = colorClassifier((int) Math.abs(voxel / 10), dfxi).getRed();
+                B = colorClassifier((int) Math.abs(voxel / 10), dfxi).getBlue();
+                G = colorClassifier((int) Math.abs(voxel / 10), dfxi).getGreen();
             } catch (Exception e) {
                 R = 1;
                 B = 1;
@@ -549,7 +585,7 @@ public class CTViewer {
     private double[] getTransferFunction(short voxel, String tfName, double dfxi, double secondDerivative) {
         if (tfName.equals("TF1")) {
             return transferFunctionTent(voxel);
-        } else if (tfName.equals("TF2")) {
+        } else if (tfName.equals("TF2D")) {
             return transferFunction2D(voxel, dfxi);
         } else {
             return transferFunction3D(voxel, dfxi, secondDerivative);

@@ -6,7 +6,7 @@ import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonType;
 import javafx.stage.Stage;
-import models.CTViewer;
+import models.VolumeRender;
 import java.util.Objects;
 
 public class Viewer {
@@ -14,9 +14,9 @@ public class Viewer {
     /**
      * Creates and displays a viewer using the specified ct viewer.
      * @param stage The stage to display this scene on.
-     * @param ctViewer The viewer to display.
+     * @param volumeRender The viewer to display.
      */
-    public Viewer(Stage stage, CTViewer ctViewer){
+    public Viewer(Stage stage, VolumeRender volumeRender){
         ViewerController controller = new ViewerController();
         try {
             FXMLLoader loader = new FXMLLoader();
@@ -24,10 +24,10 @@ public class Viewer {
                     .getResource("views/viewer.fxml"))
                     .openStream());
 
-            Scene scene = new Scene(root, ctViewer.getTop_width() + ctViewer.getSide_width() + 350,
-                    Math.max(620, ctViewer.getSide_height() + ctViewer.getFront_height() + 50));
+            Scene scene = new Scene(root, volumeRender.getTop_width() + volumeRender.getSide_width() + 350,
+                    Math.max(620, volumeRender.getSide_height() + volumeRender.getFront_height() + 50));
             controller = loader.getController();
-            controller.setCTViewer(ctViewer);
+            controller.setVolumeRenderViewer(volumeRender);
             scene.getStylesheets().add("styles.css");
             controller.setStage(stage);
             controller.init();
@@ -40,9 +40,9 @@ public class Viewer {
             error.showAndWait();
             stage.close();
         }
-        controller.sliderValueStyle(controller.getOpacitySlider());
-        controller.sliderValueStyle(controller.getThresholdSlider());
-        controller.getMidSlideButton().fire();
+        controller.setSliderStyle(controller.getOpacitySlider());
+        controller.setSliderStyle(controller.getThresholdSlider());
+        controller.getBaseMenuButton().fire();
     }
 
     /**
@@ -72,8 +72,8 @@ public class Viewer {
             stage.close();
         }
 
-        controller.sliderValueStyle(controller.getOpacitySlider());
-        controller.sliderValueStyle(controller.getThresholdSlider());
-        controller.getMidSlideButton().fire();
+        controller.setSliderStyle(controller.getOpacitySlider());
+        controller.setSliderStyle(controller.getThresholdSlider());
+        controller.getBaseMenuButton().fire();
     }
 }

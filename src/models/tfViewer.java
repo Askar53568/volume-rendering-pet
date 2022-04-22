@@ -17,7 +17,7 @@ import java.lang.Math;
 import static java.lang.Math.sqrt;
 
 //the correct file to submit
-public class Example{
+public class tfViewer {
     short cthead[][][]; //store the 3D volume data set
     short min, max; //min/max value in the 3D volume data set
     int CT_x_axis = 256;
@@ -35,9 +35,9 @@ public class Example{
     float fractionMagnitude = (float) Math.pow(2, nrMagnitudeBits) / maxMagnitude;
     private boolean color;
     private Volume v = new Volume(0,0,0);
-    private CTViewer ctViewer = new CTViewer(v);
+    private VolumeRender volumeRender = new VolumeRender(v);
 
-    public Example(){
+    public tfViewer(){
         short cthead[][][]; //store the 3D volume data set
         short min, max; //min/max value in the 3D volume data set
         int CT_x_axis = 256;

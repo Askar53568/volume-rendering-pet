@@ -10,60 +10,85 @@ import javafx.scene.image.PixelReader;
 import javafx.scene.image.WritableImage;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
-import models.CTViewer;
-import models.Example;
+import models.VolumeRender;
+import models.tfViewer;
 import views.Menu;
 
 import java.io.IOException;
 
-
+/**
+ * This class provides a UI for the program
+ */
 public class ViewerController {
     @FXML
+    //first image view
     public ImageView firstView;
+    //second image view
     public ImageView secondView;
+    //third image view
     public ImageView thirdView;
-    //public Slider firstViewSlider;
-    public Slider secondViewSlider;
-    public Slider thirdViewSlider;
+    // 1D transfer function slider
+    public Slider firstSlider;
+    // 2D transfer function slider
+    public Slider secondSlider;
+    //opacity slider for 1D transfer function
     public Slider opacitySlider;
+    //threshold slider for all 3 transfer functions
     public Slider thresholdSlider;
+    //access volume rendering menu
     public Button volumeRenderButton;
-    public Button midSlideButton;
+    //access basic menu
+    public Button baseMenuButton;
+    //background for the first view
     public StackPane firstViewBackground;
+    //background for the second view
     public StackPane secondViewBackground;
+    //background for the third view
     public StackPane thirdViewBackground;
+    //menu pane
     public StackPane menuPane;
-    public Button openFileButton;
+    //slider for positioning the light source
     public Slider lightSource;
+    //set the gradient shading
     public Button gradientButton;
+    //apply interpolation
     public Button gradientInterpolationButton;
-    public Button mipButton;
+    //apply color transfer function
     public Button colorButton;
+    //container for the volume rendering menu
     public VBox volRendMenu;
+    //container for the light manipulation menu
     public VBox lightMenu;
+    //access the transfer function name
     public ChoiceBox<String> tfChoice;
-    public ScrollPane sc;
+    //scroll pane
+    public ScrollPane scrollPane;
 
-
+    //stage
     private Stage stage;
-    private CTViewer ctViewer;
-    private Example example = new Example();
+    //reference to the volume rendering class
+    private VolumeRender volumeRender;
+    //reference to the transfer
+    private final tfViewer tfViewer = new tfViewer();
+    //volume render toggle
     private boolean isVolumeRendered = false;
-    private boolean isMIP = false;
+    //transfer function specification
     private String transferFunction = "TF1";
-    private String getTransferFunction3D = "TF3D";
 
+    //volume view from the top
     WritableImage top_image;
+    //volume view from the front
     WritableImage front_image;
+    //volume view from the side
     WritableImage side_image;
 
     /**
      * Initialises UI elements to be ready for display.
      */
     public void init() {
-        top_image = new WritableImage(ctViewer.getTop_width(), ctViewer.getTop_height());
-        front_image = new WritableImage(ctViewer.getFront_width(), ctViewer.getFront_height());
-        side_image = new WritableImage(ctViewer.getSide_width(), ctViewer.getSide_height());
+        top_image = new WritableImage(volumeRender.getTop_width(), volumeRender.getTop_height());
+        front_image = new WritableImage(volumeRender.getFront_width(), volumeRender.getFront_height());
+        side_image = new WritableImage(volumeRender.getSide_width(), volumeRender.getSide_height());
 
         Menu menu = new Menu(stage);
         menuPane.getChildren().add(menu.getRoot());
@@ -75,14 +100,14 @@ public class ViewerController {
         thirdView.setImage(side_image);
 
 
-        secondViewSlider.setMax(4500);
+        firstSlider.setMax(4500);
         thresholdSlider.setMax(4500);
         thresholdSlider.setMin(-1000);
-        thirdViewSlider.setMax(4500);
+        secondSlider.setMax(4500);
 
 
         tfChoice.getItems().add("TF1");
-        tfChoice.getItems().add("TF2");
+        tfChoice.getItems().add("TF2D");
         tfChoice.getItems().add("TF3D");
         tfChoice.setValue("TF1");
 
@@ -93,113 +118,116 @@ public class ViewerController {
         );
 
 
-        midSlideButton.setOnAction(event -> {
+        baseMenuButton.setOnAction(event -> {
             reset();
-            isMIP = false;
-            //firstViewSlider.valueProperty().setValue(76);
-            secondViewSlider.valueProperty().setValue(1000);
-            thirdViewSlider.valueProperty().setValue(0);
+            firstSlider.valueProperty().setValue(1000);
+            secondSlider.valueProperty().setValue(0);
         });
 
-        /**
-         * Sets an On-click event for the top image view
-         * Displays the top image resized x2
+        /*
+          Sets an On-click event for the top image view
+          Displays the top image resized x2
          */
-        firstView.setOnMouseClicked(event -> {
-            example.resizePopUp(top_image, 2);
-        });
-        /**
-         * Displays the front image resized x2
+        firstView.setOnMouseClicked(event -> tfViewer.resizePopUp(top_image, 2));
+        /*
+          Displays the front image resized x2
          */
-        secondView.setOnMouseClicked(event -> {
-            example.resizePopUp(front_image, 2);
-        });
-        /**
-         * Displays the side image resized x2
+        secondView.setOnMouseClicked(event -> tfViewer.resizePopUp(front_image, 2));
+        /*
+          Displays the side image resized x2
          */
-        thirdView.setOnMouseClicked(event -> {
-            example.resizePopUp(side_image, 2);
-        });
+        thirdView.setOnMouseClicked(event -> tfViewer.resizePopUp(side_image, 2));
 
-
+        /*
+          Sets the menu for volume rendering visible
+         */
         volumeRenderButton.setOnAction(event -> {
-            if (!isVolumeRendered) {
-                isMIP = false;
+            if (!isVolumeRendered) { //if "volume render" button is pressed
                 volumeRender();
                 volRendMenu.setVisible(true);
                 volRendMenu.setManaged(true);
                 isVolumeRendered = true;
             } else {
-                midSlideButton.fire();
+                baseMenuButton.fire(); //activate base menu
             }
         });
-
-        secondViewSlider.valueProperty().addListener((observable, oldValue, newValue) -> {
+        /*
+          Set the second view slider to input threshold values for the gradient magnitude - intensity transfer function
+         */
+        firstSlider.valueProperty().addListener((observable, oldValue, newValue) -> {
             try {
-                example.opacityComputeFront(front_image, newValue.doubleValue());
-                example.opacityComputeSideNoReturn(side_image, newValue.doubleValue());
-                example.opacityComputeTop(top_image, newValue.doubleValue());
+                tfViewer.opacityComputeFront(front_image, newValue.doubleValue());
+                tfViewer.opacityComputeSideNoReturn(side_image, newValue.doubleValue());
+                tfViewer.opacityComputeTop(top_image, newValue.doubleValue());
                 reset();
             } catch (IOException e) {
                 e.printStackTrace();
             }
-            sliderValueStyle(secondViewSlider);
+            setSliderStyle(firstSlider);
             reset();
-            isMIP = false;
         });
-
-        thirdViewSlider.valueProperty().addListener((observable, oldValue, newValue) -> {
+        /*
+          Set the third slider to input threshold values for the gradient magnitude - intensity - second derivative transfer function
+         */
+        secondSlider.valueProperty().addListener((observable, oldValue, newValue) -> {
             try {
-                example.laplacianSide(side_image, newValue.doubleValue());
+                tfViewer.laplacianSide(side_image, newValue.doubleValue());
             } catch (IOException e) {
                 e.printStackTrace();
             }
-            sliderValueStyle(thirdViewSlider);
+            setSliderStyle(secondSlider);
             reset();
-            isMIP = false;
         });
-
+        /*
+          Set the opacity for the 1D Tent function
+         */
         opacitySlider.valueProperty().addListener((observable, oldValue, newValue) -> {
-            ctViewer.setOpacity((double) (newValue) / 100.0);
+            volumeRender.setOpacity((double) (newValue) / 100.0);
             volumeRender();
-            sliderValueStyle(opacitySlider);
+            setSliderStyle(opacitySlider);
         });
-
+        /*
+          Set the threshold for all 3 transfer function
+         */
         thresholdSlider.valueProperty().addListener((observable, oldValue, newValue) -> {
-            ctViewer.setTreshold((double) (newValue));
+            volumeRender.setTreshold((double) (newValue));
             volumeRender();
-            sliderValueStyle(thresholdSlider);
+            setSliderStyle(thresholdSlider);
         });
-
+        /*
+          Set the position of the light source
+         */
         lightSource.valueProperty().addListener((observable, oldValue, newValue) -> {
-            ctViewer.setLightSourceX(newValue.intValue());
+            volumeRender.setLightSourceX(newValue.intValue());
             volumeRender();
-            sliderValueStyle(lightSource);
+            setSliderStyle(lightSource);
         });
-
+        /*
+          Set the diffuse shading
+         */
         gradientButton.setOnAction(e -> {
-            ctViewer.setGradientShading(!ctViewer.getGradientShading());
-            lightMenu.setVisible(ctViewer.getGradientShading());
+            volumeRender.setGradientShading(!volumeRender.getGradientShading());
+            lightMenu.setVisible(volumeRender.getGradientShading());
             lightMenu.setManaged(true);
             volumeRender();
         });
-
+        /*
+          Apply gradient interpolation
+         */
         gradientInterpolationButton.setOnAction(e -> {
-            ctViewer.setGradientInterpolation(!ctViewer.getGradientInterpolation());
-            String value = ctViewer.getGradientInterpolation() ? "On" : "Off";
+            volumeRender.setGradientInterpolation(!volumeRender.getGradientInterpolation());
+            String value = volumeRender.getGradientInterpolation() ? "On" : "Off";
             gradientInterpolationButton.setText("Interpolation: " + value);
             volumeRender();
         });
-
+        /*
+          Apply or not apply the color transfer function
+         */
         colorButton.setOnAction(e -> {
-            String value = example.getColor() ? "Off" : "On";
+            String value = tfViewer.getColor() ? "Off" : "On";
             colorButton.setText("Color: "+ value);
-            example.changeColor();
-            ctViewer.changeColor();
-        });
-        openFileButton.setOnAction(e -> {
-            menu.getRoot().setVisible(!menu.getRoot().isVisible());
-            volRendMenu.setManaged(false);
+            tfViewer.changeColor();
+            volumeRender.changeColor();
         });
     }
 
@@ -210,8 +238,8 @@ public class ViewerController {
         volRendMenu.setVisible(false);
         volRendMenu.setManaged(false);
         isVolumeRendered = false;
-        ctViewer.setGradientShading(false);
-        ctViewer.setGradientInterpolation(false);
+        volumeRender.setGradientShading(false);
+        volumeRender.setGradientInterpolation(false);
         gradientInterpolationButton.setText("Interpolation: Off");
         lightMenu.setVisible(false);
         lightMenu.setManaged(false);
@@ -221,9 +249,9 @@ public class ViewerController {
      * Carries out volume rendering on all views.
      */
     public void volumeRender() {
-        volumeRenderSingle(side_image, "side");
-        volumeRenderSingle(top_image, "top");
-        volumeRenderSingle(front_image, "front");
+        renderView(side_image, "side");
+        renderView(top_image, "top");
+        renderView(front_image, "front");
     }
 
     /**
@@ -231,7 +259,7 @@ public class ViewerController {
      *
      * @param slider The slider to update.
      */
-    public void sliderValueStyle(Slider slider) {
+    public void setSliderStyle(Slider slider) {
         double value = (slider.getValue() - slider.getMin()) / (slider.getMax() - slider.getMin()) * 100.0;
         slider.lookup(".slider .track").setStyle(String.format("-fx-background-color: " +
                         "linear-gradient(to right, #0278D7 0%%, #0278D7 %f%%, #383838 %f%%, #383838 100%%);",
@@ -241,10 +269,10 @@ public class ViewerController {
     /**
      * Sets the viewer to use.
      *
-     * @param CTViewer The viewer to use.
+     * @param VolumeRender The viewer to use.
      */
-    public void setCTViewer(CTViewer CTViewer) {
-        this.ctViewer = CTViewer;
+    public void setVolumeRenderViewer(VolumeRender VolumeRender) {
+        this.volumeRender = VolumeRender;
     }
 
     /**
@@ -256,6 +284,10 @@ public class ViewerController {
         return opacitySlider;
     }
 
+    /**
+     * Gets the slider that sets the threshold.
+     * @return The threshold slider.
+     */
     public Slider getThresholdSlider() {
         return thresholdSlider;
     }
@@ -264,14 +296,14 @@ public class ViewerController {
     /**
      * Gets the button that displays middle slide.
      *
-     * @return The mid slide button.
+     * @return The base menu button.
      */
-    public Button getMidSlideButton() {
-        return midSlideButton;
+    public Button getBaseMenuButton() {
+        return baseMenuButton;
     }
 
     /**
-     * Gets the pane in which the menu is to be displayed..
+     * Gets the pane in which the menu is to be displayed.
      *
      * @return The menu pane.
      */
@@ -298,13 +330,13 @@ public class ViewerController {
     }
 
     /**
-     * Carries out volume rendering on a single view.
+     * Individual view volume render
      *
-     * @param image The image to display the rendered image in.
-     * @param view  The direction to view the scan/dataset from. i.e front, side or top.
+     * @param image The image to display the rendered image.
+     * @param view  The direction of the volume.
      */
-    private void volumeRenderSingle(WritableImage image, String view) {
-        PixelReader reader = ctViewer.volumeRender(image, view, transferFunction).getPixelReader();
+    private void renderView(WritableImage image, String view) {
+        PixelReader reader = volumeRender.volumeRender(image, view, transferFunction).getPixelReader();
         int width = (int) image.getWidth();
         int height = (int) image.getHeight();
         image.getPixelWriter().setPixels(0, 0, width, height, reader, 0, 0);

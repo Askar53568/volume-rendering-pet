@@ -41,7 +41,7 @@ public class Viewer {
             stage.close();
         }
         controller.sliderValueStyle(controller.getOpacitySlider());
-        controller.sliderValueStyle(controller.getTresholdSlider());
+        controller.sliderValueStyle(controller.getThresholdSlider());
         controller.getMidSlideButton().fire();
     }
 
@@ -73,7 +73,7 @@ public class Viewer {
         }
 
         controller.sliderValueStyle(controller.getOpacitySlider());
-        controller.sliderValueStyle(controller.getTresholdSlider());
+        controller.sliderValueStyle(controller.getThresholdSlider());
         controller.getMidSlideButton().fire();
     }
 }

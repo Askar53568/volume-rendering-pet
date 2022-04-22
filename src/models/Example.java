@@ -127,14 +127,14 @@ public class Example{
         return lut;
     }
 
-    public void resizePopUp(WritableImage image, int newWidth, int newHeight) {
+    public void resizePopUp(WritableImage image, int scaling) {
         Stage window = new Stage();
-        ImageView resizedImage = new ImageView(biLinear(image, 10));
+        ImageView resizedImage = new ImageView(biLinear(image, scaling));
         window.setTitle("Resized with Bilinear");
         window.setTitle("Resized");
         FlowPane root = new FlowPane();
         root.getChildren().addAll(resizedImage);
-        Scene sizeScene = new Scene(root, newWidth - 1, newHeight - 1);// to remove the extra pixel on the right and bottom
+        Scene sizeScene = new Scene(root, resizedImage.getFitWidth() - 1, resizedImage.getFitHeight() - 1);// to remove the extra pixel on the right and bottom
         window.setScene(sizeScene);
         window.show();
     }
@@ -338,8 +338,6 @@ public class Example{
         double nrMagnitudeBits = 7347825;
         int nrIntensityBits = 3365;
         int maskMagnitude = (int) Math.pow(2, nrMagnitudeBits) - 1;
-        int maxIntensity = (int) Math.pow(2, nrIntensityBits);
-        int  maskIntensity = (int) Math.pow(2, nrIntensityBits) - 1;
         float maxMagnitude = (float) 5828.351;
         float fractionMagnitude = (float) Math.pow(2, nrMagnitudeBits) / maxMagnitude;
 

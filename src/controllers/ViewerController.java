@@ -26,7 +26,7 @@ public class ViewerController {
     public Slider secondViewSlider;
     public Slider thirdViewSlider;
     public Slider opacitySlider;
-    public Slider tresholdSlider;
+    public Slider thresholdSlider;
     public Button volumeRenderButton;
     public Button midSlideButton;
     public StackPane firstViewBackground;
@@ -39,11 +39,11 @@ public class ViewerController {
     public Button gradientInterpolationButton;
     public Button mipButton;
     public Button colorButton;
-    public Button popUpButton;
     public VBox volRendMenu;
     public VBox lightMenu;
     public ChoiceBox<String> tfChoice;
     public ScrollPane sc;
+
 
     private Stage stage;
     private CTViewer ctViewer;
@@ -76,8 +76,8 @@ public class ViewerController {
 
 
         secondViewSlider.setMax(4500);
-        tresholdSlider.setMax(4500);
-        tresholdSlider.setMin(-1000);
+        thresholdSlider.setMax(4500);
+        thresholdSlider.setMin(-1000);
         thirdViewSlider.setMax(1500);
 
 
@@ -101,13 +101,24 @@ public class ViewerController {
             thirdViewSlider.valueProperty().setValue(0);
         });
 
-        popUpButton.setOnAction(event -> {
-            try {
-                example.laplacianSide(side_image, 2300.0f);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            example.resizePopUp(side_image, 600,400);
+        /**
+         * Sets an On-click event for the top image view
+         * Displays the top image resized x2
+         */
+        firstView.setOnMouseClicked(event -> {
+            example.resizePopUp(top_image, 2);
+        });
+        /**
+         * Displays the front image resized x2
+         */
+        secondView.setOnMouseClicked(event -> {
+            example.resizePopUp(front_image, 2);
+        });
+        /**
+         * Displays the side image resized x2
+         */
+        thirdView.setOnMouseClicked(event -> {
+            example.resizePopUp(side_image, 2);
         });
 
 
@@ -124,10 +135,9 @@ public class ViewerController {
         });
 
         secondViewSlider.valueProperty().addListener((observable, oldValue, newValue) -> {
-            //ctViewer.drawSlice(front_image,"front", newValue.intValue());
             try {
-                example.laplacianSide(side_image, newValue.doubleValue());
-                example.opacityComputeSideNoReturn(front_image, newValue.doubleValue());
+                example.opacityComputeFront(front_image, newValue.doubleValue());
+                example.opacityComputeSideNoReturn(side_image, newValue.doubleValue());
                 example.opacityComputeTop(top_image, newValue.doubleValue());
                 reset();
             } catch (IOException e) {
@@ -157,10 +167,10 @@ public class ViewerController {
             sliderValueStyle(opacitySlider);
         });
 
-        tresholdSlider.valueProperty().addListener((observable, oldValue, newValue) -> {
+        thresholdSlider.valueProperty().addListener((observable, oldValue, newValue) -> {
             ctViewer.setTreshold((double) (newValue));
             volumeRender();
-            sliderValueStyle(tresholdSlider);
+            sliderValueStyle(thresholdSlider);
         });
 
         lightSource.valueProperty().addListener((observable, oldValue, newValue) -> {
@@ -195,15 +205,7 @@ public class ViewerController {
             String value = example.getColor() ? "Off" : "On";
             colorButton.setText("Color: "+ value);
             example.changeColor();
-            try {
-                example.opacityComputeSideNoReturn(side_image, 1000);
-                example.opacityComputeFront(front_image, 1000);
-                example.opacityComputeTop(top_image, 1000);
-            } catch (IOException ex) {
-                ex.printStackTrace();
-            }
-
-
+            ctViewer.changeColor();
         });
         openFileButton.setOnAction(e -> {
             menu.getRoot().setVisible(!menu.getRoot().isVisible());
@@ -264,8 +266,8 @@ public class ViewerController {
         return opacitySlider;
     }
 
-    public Slider getTresholdSlider() {
-        return tresholdSlider;
+    public Slider getThresholdSlider() {
+        return thresholdSlider;
     }
 
 

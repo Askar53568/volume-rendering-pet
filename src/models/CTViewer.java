@@ -18,10 +18,13 @@ public class CTViewer {
     private final int SIDE_HEIGHT;
     //private final double BONE_VALUE = -300;
     private final Volume ctScan;
+    VJClassifierLevoy levoyClass = new VJClassifierLevoy();
+    byte [] lut = levoyClass.defaultLUT();
     private Example example;
+    private boolean tfColor = false;
     private double opacity = 0.12;
     private boolean isGradient = false;
-    private boolean isGradientInterpolation = false;
+    private boolean isGradientInterpolation = true;
     private double lightSourceX = 83;
     private double threshold = 1000.0;
     private double levoyWidth = 2.0;
@@ -160,7 +163,7 @@ public class CTViewer {
                 int prevRay = z - 1;
                 short prevVoxel = getVoxel(view, x, y, prevRay);
                 if (prevVoxel != currentVoxel) {
-                    double exactZ = linearInterpolationPosition(view, threshold + opacity, prevVoxel, currentVoxel, prevRay, z);
+                    double exactZ = linearInterpolationPosition(view, threshold, prevVoxel, currentVoxel, prevRay, z);
                     surfaceNormal = getSurfaceNormal(view, x, y, exactZ, height, width, depth);
                     gradientMag = surfaceNormal.getLength();
                 }
@@ -429,11 +432,7 @@ public class CTViewer {
             R = 1.0;
             G = 0.79;
             B = 0.6;
-        }  else if ((voxel > 49) && (voxel < 301)) {
-            R = 0.54;
-            G = 0;
-            B = 0;
-        } else if (voxel > 300) {
+        }else if (voxel > 300) {
             R = 1;
             G = 1;
             B = 1;
@@ -444,9 +443,26 @@ public class CTViewer {
         }
         return new double[]{R, G, B, O};
     }
+    public VJAlphaColor alphacolor(int index, double gradientMag)
+    {
+        double nrMagnitudeBits = 7347825;
+        int nrIntensityBits = 3365;
+        int maskMagnitude = (int) Math.pow(2, nrMagnitudeBits) - 1;
+        float maxMagnitude = (float) 5828.351;
+        float fractionMagnitude = (float) Math.pow(2, nrMagnitudeBits) / maxMagnitude;
+
+        // Code gradient magnitude into int.
+        int igradient = (int) (gradientMag * fractionMagnitude) & maskMagnitude;
+        // Fit gradient magnitude and intensity into 16 bits.
+        int entry = (igradient << nrIntensityBits) | index;
+        return new VJAlphaColor(1.0,
+                (lut[index*3+0]&0xff),
+                (lut[index*3+1]&0xff),
+                (lut[index*3+2]&0xff));
+    }
 
     private double[] transferFunction2D(short voxel, double dfxi){
-        double R, G, B, O, levWidth;
+        double R = 0, G = 0, B=0, O, levWidth;
         levWidth = 2;
         if (dfxi == 0 && voxel == threshold) {
             O = 1.0;
@@ -455,15 +471,27 @@ public class CTViewer {
         } else {
             O = 0.0;
         }
+        if (tfColor) {
+            try {
+                R = alphacolor((int) Math.abs(voxel / threshold), dfxi).getRed();
+                B = alphacolor((int) Math.abs(voxel / threshold), dfxi).getBlue();
+                G = alphacolor((int) Math.abs(voxel / threshold), dfxi).getGreen();
+            }catch (Exception e){
+                System.out.println("Error");
+            }
+        }else{
+            return hounsefieldColorTF(voxel, O);
+        }
+        return new double[]{R, G, B, O};
+    }
+
+    private double[] hounsefieldColorTF(short voxel, double opacity){
+        double R = 0, G = 0, B=0;
         if ((voxel > -299) && (voxel < 50)) {
             R = 1.0;
             G = 0.79;
             B = 0.6;
-        }  else if ((voxel > 49) && (voxel < 301)) {
-            R = 0.54;
-            G = 0;
-            B = 0;
-        } else if (voxel > 300) {
+        }else if (voxel > 300) {
             R = 1;
             G = 1;
             B = 1;
@@ -472,13 +500,13 @@ public class CTViewer {
             G = 0;
             B = 0;
         }
-        return new double[]{R, G, B, O};
+        double[] colors = {R,G,B,opacity};
+        return colors;
     }
 
-    private double[] transferFunction3D(double voxel, double dfxi, double secondDerivative){
-        double R, G, B, O, levWidth;
+    private double[] transferFunction3D(short voxel, double dfxi, double secondDerivative){
+        double R =0, G=0, B=0, O, levWidth;
         levWidth = 2;
-        //voxel = secondDerivative;
         if (dfxi == 0 && voxel == threshold) {
             O = 1.0;
         } else if (dfxi > 0 && voxel >= (threshold - levWidth * dfxi) && voxel <= (threshold + levWidth * dfxi)) {
@@ -486,9 +514,19 @@ public class CTViewer {
         } else {
             O = 0.0;
         }
-            R = 1;
-            G = 1;
-            B = 1;
+        if (tfColor) {
+            try {
+                R = alphacolor((int) Math.abs(voxel / 10), secondDerivative).getRed();
+                B = alphacolor((int) Math.abs(voxel / 10), secondDerivative).getBlue();
+                G = alphacolor((int) Math.abs(voxel / 10), secondDerivative).getGreen();
+            }catch (Exception e){
+                R = 1;
+                B = 1;
+                G = 1;
+            }
+        }else{
+            return hounsefieldColorTF(voxel, O);
+        }
         return new double[]{R, G, B, O};
     }
 
@@ -518,6 +556,7 @@ public class CTViewer {
     public void setOpacity(double opacity) {
         this.opacity = opacity;
     }
+    public void changeColor(){tfColor = !this.tfColor;}
 
     public void setTreshold(double treshold){this.threshold = treshold;}
 

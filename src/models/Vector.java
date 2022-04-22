@@ -123,6 +123,10 @@ public class Vector {
         this.c = c;
     }
 
+    /**
+     * Calculates the length of the vector.
+     * @return The length.
+     */
     public double getLength() {
         double normalValue = Math.sqrt((getA() * getA()) + (getB() * getB())
                 + (getC() * getC()));

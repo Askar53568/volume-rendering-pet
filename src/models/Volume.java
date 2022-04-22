@@ -11,9 +11,9 @@ public class Volume {
 
     /**
      * Creates a volume of specified size.
-     * @param x The length of the x axis.
-     * @param y The length of the y axis.
-     * @param z The length of the z axis.
+     * @param x The length of the x-axis.
+     * @param y The length of the y-axis.
+     * @param z The length of the z-axis.
      */
     public Volume(int x, int y, int z) {
         this.CT_x_axis = x;
@@ -25,10 +25,9 @@ public class Volume {
      * Populates the volume with data from file.
      * @param filename The name of the file to read from.
      * @param isCorrectEndian If the file is in the correct endian or not.
-     * @param isVH If the volume is the VH project and therefore needs re-sampling.
      * @throws IOException If file ends prematurely/wrong size volume.
      */
-    public void ReadData(String filename, boolean isCorrectEndian, boolean isVH) throws IOException {
+    public void ReadData(String filename, boolean isCorrectEndian) throws IOException {
         File file = new File(filename);
         DataInputStream in = new DataInputStream(new BufferedInputStream(new FileInputStream(file)));
         min=Short.MAX_VALUE; max=Short.MIN_VALUE;
@@ -36,9 +35,9 @@ public class Volume {
         int b1, b2;
         volume = new short[CT_z_axis][CT_y_axis][CT_x_axis];
 
-        for (int k = 0; k < CT_z_axis; k++) {
-            for (int j = 0; j < CT_y_axis; j++) {
-                for (int i = 0; i < CT_x_axis; i++) {
+        for (int k = 0; k < CT_z_axis; k++) { //z-axis loop
+            for (int j = 0; j < CT_y_axis; j++) {//y-axis loop
+                for (int i = 0; i < CT_x_axis; i++) {//x-axis loop
                     b1 = ((int) in.readByte()) & 0xff;
                     b2 = ((int) in.readByte()) & 0xff;
 
@@ -108,69 +107,4 @@ public class Volume {
     }
 
 
-    /**
-     * Resizes a matrix to a specified size.
-     * Uses nearest neighbor.
-     * @param matrix The matrix to resize.
-     * @param width The width of the matrix to resize.
-     * @param height The height of the matrix to resize.
-     * @param resizeW The width to resize to.
-     * @param resizeH The height to resize to.
-     * @return Th matrix of the new size.
-     */
-    private short[][] resizeMatrix(short[][] matrix, int width, int height, int resizeW, int resizeH) {
-        short[][] resized = createMatrix(resizeW, resizeH);
-        for (int x = 0; x < resizeW; x++) {
-            for (int y = 0; y < resizeH; y++) {
-                int nearestX = (int) (x * (float) width  / resizeW);
-                int nearestY = (int) (y * (float) height / resizeH);
-                resized[x][y] = matrix[nearestX][nearestY];
-            }
-        }
-        return resized;
-    }
-
-    /**
-     * Centres a matrix within a larger container matrix of specified size.
-     * @param content The smaller matrix to centre.
-     * @param containerWidth The width of the container.
-     * @param containerHeight The height of the container.
-     * @return The new matrix.
-     */
-    private short[][] centreContent(short[][] content, int containerWidth, int containerHeight) {
-        short[][] output = createMatrix(containerWidth, containerHeight);
-        int length = content.length;
-        int centreBegins = ((getCT_x_axis() - content.length) / 2);
-        int xCentre = 0;
-        for ( int x = 0; x < containerWidth; x++) {
-            int yCentre = 0;
-            for ( int y = 0; y < containerHeight; y++) {
-                if (y >  centreBegins && y < centreBegins + length ){
-                    output[x][y] = content[xCentre][yCentre];
-                    yCentre++;
-                }
-            }
-            if (x > centreBegins && x < centreBegins + length){
-                xCentre++;
-            }
-        }
-        return output;
-    }
-
-    /**
-     * Creates a matrix of a specified size, and sets all values to default to
-     * -1024, the hounsfield value of air.
-     * @param width the width of the matrix to create.
-     * @param height the height of the matrix to create.
-     * @return a matrix of specified height.
-     */
-    private short[][] createMatrix (int width, int height){
-        short[][] matrix = new short[width][height];
-        for (int x = 0; x < width; ++x) {
-            for (int y = 0; y < height; ++y) {
-                matrix[x][y] = -1024;
-            }
-        }
-        return matrix;
-    }
 }

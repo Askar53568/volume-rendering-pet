@@ -190,7 +190,7 @@ public class ViewerController {
           Set the threshold for all 3 transfer function
          */
         thresholdSlider.valueProperty().addListener((observable, oldValue, newValue) -> {
-            volumeRender.setTreshold((double) (newValue));
+            volumeRender.setThreshold((double) (newValue));
             volumeRender();
             setSliderStyle(thresholdSlider);
         });
@@ -198,7 +198,7 @@ public class ViewerController {
           Set the position of the light source
          */
         lightSource.valueProperty().addListener((observable, oldValue, newValue) -> {
-            volumeRender.setLightSourceX(newValue.intValue());
+            volumeRender.setLightX(newValue.intValue());
             volumeRender();
             setSliderStyle(lightSource);
         });

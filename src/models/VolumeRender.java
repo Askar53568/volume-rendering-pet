@@ -7,25 +7,39 @@ import javafx.scene.paint.Color;
 import java.util.stream.IntStream;
 
 /**
- * Represents a ct scan viewer and the algorithms that can be carried out on them.
+ * Represents a volume renderer with 3 available transfer functions, linear interpolation , shading algorithm and a front-to-back composition algorithm.
  */
 public class VolumeRender {
+    //top view width
     private final int TOP_WIDTH;
+    //top view height
     private final int TOP_HEIGHT;
+    //front view width
     private final int FRONT_WIDTH;
+    //front view height
     private final int FRONT_HEIGHT;
+    //side view width
     private final int SIDE_WIDTH;
+    //side view height
     private final int SIDE_HEIGHT;
-    private final Volume ctScan;
-    RGBClassifier levoyClass = new RGBClassifier();
-    byte[] lut = levoyClass.defaultLUT();
+    //reference to the volume
+    private final Volume volume;
+    //color classifier
+    RGBClassifier colorClassifier = new RGBClassifier();
+    //generate a color lookup table
+    byte[] lut = colorClassifier.defaultLUT();
+    //apply color transfer function?
     private boolean tfColor = false;
+    //opacity slider variable
     private double opacity = 0.12;
+    //apply gradient shading?
     private boolean isGradient = false;
+    //apply interpolation?
     private boolean isGradientInterpolation = false;
-    private double lightSourceX = 83;
+    //light source x-axis
+    private double lightX = 83;
+    //threshold slider variable
     private double threshold = 1000.0;
-    private double levoyWidth = 2.0;
 
     /**
      * Creates a CT viewer.
@@ -33,7 +47,7 @@ public class VolumeRender {
      * @param volume The volume to use/display.
      */
     public VolumeRender(Volume volume) {
-        this.ctScan = volume;
+        this.volume = volume;
         this.TOP_WIDTH = volume.getCT_x_axis();
         this.TOP_HEIGHT = volume.getCT_y_axis();
         this.FRONT_WIDTH = volume.getCT_x_axis();
@@ -43,29 +57,29 @@ public class VolumeRender {
     }
 
     /**
-     * Gets the correct voxel for the direction/view you want to see.
+     * Gets the correct voxel for the direction provided (top, front, side)
      *
-     * @param view The view/direction to display e.g top, side or front
+     * @param view The direction of the volume
      * @param x    The x value to get.
      * @param y    The y value to get.
      * @param z    The z value to get.
-     * @return The correct voxel.
+     * @return The voxel.
      */
     public short getVoxel(String view, int x, int y, int z) {
         if (view.equals("top")) {
-            return ctScan.getVoxel(z, y, x);
+            return volume.getVoxel(z, y, x);
         } else if (view.equals("side")) {
-            return ctScan.getVoxel(y, x, z);
+            return volume.getVoxel(y, x, z);
         } else {
-            return ctScan.getVoxel(y, z, x);
+            return volume.getVoxel(y, z, x);
         }
     }
 
     /**
-     * Draws the specified slice of the CAT scan to screen.
+     * Returns the specified slice of the CT scan.
      *
      * @param image The image to write to.
-     * @param view  The direction of CAT scan to view. Options are front, side or top.
+     * @param view  The direction of the volume.
      * @param slice The slice to display.
      */
     public void drawSlice(WritableImage image, String view, int slice) {
@@ -77,7 +91,7 @@ public class VolumeRender {
         for (int j = 0; j < height; j++) {
             for (int i = 0; i < width; i++) {
                 voxel = getVoxel(view, i, j, slice);
-                colour = (((float) voxel - (float) ctScan.getMin()) / ((float) (ctScan.getMax() - ctScan.getMin())));
+                colour = (((float) voxel - (float) volume.getMin()) / ((float) (volume.getMax() - volume.getMin())));
                 colour = Math.max(colour, 0);
                 image_writer.setColor(i, j, Color.color(colour, colour, colour, 1.0));
             } // column loop
@@ -85,85 +99,82 @@ public class VolumeRender {
     }
 
     /**
-     * Performs maximum intensity projection on the specified image/scan.
+     * Performs volume rendering.
      *
      * @param image The image to write to.
-     * @param view  The direction to view the scan/dataset from. i.e front, side or top.
-     */
-    public void maximumIntensityProjection(WritableImage image, String view) {
-        PixelWriter image_writer = image.getPixelWriter();
-        int width = (int) image.getWidth(), height = (int) image.getHeight();
-        int depth = (view.equals("top")) ? ctScan.getCT_z_axis() : ctScan.getCT_x_axis();
-
-        for (int j = 0; j < height; j++) {
-            for (int i = 0; i < width; i++) {
-                short maximum = ctScan.getMin();
-                for (int k = 0; k < depth; k++) {
-                    short currentVoxel = getVoxel(view, i, j, k);
-                    if (currentVoxel > maximum) {
-                        maximum = currentVoxel;
-                    }
-                }
-                float colour = (((float) maximum - (float) ctScan.getMin()) / ((float) (ctScan.getMax() - ctScan.getMin())));
-                image_writer.setColor(i, j, Color.color(colour, colour, colour, 1.0));
-            }//column
-        }//row
-    }
-
-    /**
-     * Performs volume rendering on the specified image/scan.
-     *
-     * @param image The image to write to.
-     * @param view  The direction to view the scan/dataset from. i.e front, side or top.
+     * @param view  The direction of the volume.
      */
     public WritableImage volumeRender(WritableImage image, String view, String transferFunction) {
+        //width of the image to write to
         int width = (int) image.getWidth();
+        //Height of the image to write to
         int height = (int) image.getHeight();
-        WritableImage image1 = new WritableImage(width, height);
-        PixelWriter writer = image1.getPixelWriter();
-        int depth = (view.equals("top")) ? ctScan.getCT_z_axis() : ctScan.getCT_x_axis();
+        //image to write to
+        WritableImage writableImage = new WritableImage(width, height);
+        PixelWriter writer = writableImage.getPixelWriter();
+        //if the view is from the top depth = 113, other views = 256
+        int depth = (view.equals("top")) ? volume.getCT_z_axis() : volume.getCT_x_axis();
 
         IntStream.range(1, height - 1).parallel().forEach(j -> {
             IntStream.range(1, width - 1).parallel().forEach(i -> {
+                //opacity accumulator
                 double alphaAccum = 1;
+                //red shade accumulator
                 double redAccum = 0;
+                //green shade accumulator
                 double greenAccum = 0;
+                //blue shade accumulator
                 double blueAccum = 0;
-                boolean hitBone = false;
-                double L = 1;
+                //variable to check the light
+                boolean done = false;
+                //light
+                double light = 1;
 
-                for (int k = 1; k < depth - 1 && !hitBone; k++) {
+                for (int k = 1; k < depth - 1 && !done; k++) {
                     short currentVoxel = getVoxel(view, i, j, k);
                     if (currentVoxel >= threshold && isGradient) {
-                        L = getDiffuseLighting(view, i, j, k, currentVoxel, height, width, depth);
-                        hitBone = true;
+                        light = getDiffuseLighting(view, i, j, k, currentVoxel, height, width, depth);
+                        done = true;
                     }
-
-                    if (!isGradient || hitBone) {
+                    //if user chose not to apply gradient shading or if gradient shading has completed
+                    if (!isGradient || done) {
                         final int RED = 0;
                         final int GREEN = 1;
                         final int BLUE = 2;
-                        double dfxi = 0.0;
+                        double gradientMagnitude = 0.0;
                         if(tfColor) {
-                            dfxi = getSurfaceNormal(view, i, j, k, height, width, depth).getLength();
+                            gradientMagnitude = getSurfaceNormal(view, i, j, k, height, width, depth).getLength();
                         } else{
-                            dfxi = getExactGradient(view, currentVoxel, i, j, k, height, width, depth);
+                            gradientMagnitude = getExactGradient(view, currentVoxel, i, j, k, height, width, depth);
                         }
                         double secondDerivative = getSecondOrderDerivative(view, i, j, k);
-                        double[] colour = getTransferFunction(currentVoxel, transferFunction, dfxi, secondDerivative);
+                        double[] colour = getTransferFunction(currentVoxel, transferFunction, gradientMagnitude, secondDerivative);
                         double sigma = colour[3];
-                        redAccum = Math.min(Math.max(redAccum + (alphaAccum * sigma * L * colour[RED]), 0), 1);
-                        greenAccum = Math.min(Math.max(greenAccum + (alphaAccum * sigma * L * colour[GREEN]), 0), 1);
-                        blueAccum = Math.min(Math.max(blueAccum + (alphaAccum * sigma * L * colour[BLUE]), 0), 1);
+                        redAccum = Math.min(Math.max(redAccum + (alphaAccum * sigma * light * colour[RED]), 0), 1);
+                        greenAccum = Math.min(Math.max(greenAccum + (alphaAccum * sigma * light * colour[GREEN]), 0), 1);
+                        blueAccum = Math.min(Math.max(blueAccum + (alphaAccum * sigma * light * colour[BLUE]), 0), 1);
                         alphaAccum = alphaAccum * (1 - sigma);
                     }
                 }
                 writer.setColor(i, j, Color.color(redAccum, greenAccum, blueAccum, 1));
             });
         });
-        return image1;
+        return writableImage;
     }
 
+    /**
+     * Calculates and returns an estimate of the gradient magnitude at the specified position, in which the z
+     * axis is a non-integer position.
+     * @param view direction of the volume.
+     * @param currentVoxel voxel at a current position in the volume
+     * @param x The x-axis location of the pixel.
+     * @param y The y-axis location of the pixel.
+     * @param z The z-axis or ray depth location of the pixel.
+     * @param height The height of the image.
+     * @param width The width of the image.
+     * @param depth Maximum depth of the ray.
+     * @return a more accurate gradient magnitude.
+     */
     public double getExactGradient(String view, short currentVoxel, int x, int y, int z, int height, int width, int depth) {
         double gradientMag = 0;
         Vector surfaceNormal = getSurfaceNormal(view, x, y, z, height, width, depth);
@@ -193,8 +204,7 @@ public class VolumeRender {
         double laplacianX = getVoxel(view, x, y, z - 1) - 2 * getVoxel(view, x, y, z) + getVoxel(view, x, y, z + 1);
         double laplacianY = getVoxel(view, x, y - 1, z) - 2 * getVoxel(view, x, y, z) + getVoxel(view, x, y + 1, z);
         double laplacianZ = getVoxel(view, x - 1, y, z) - 2 * getVoxel(view, x, y, z) + getVoxel(view, x + 1, y, z);
-        double laplacian = laplacianX + laplacianY + laplacianZ;
-        return laplacian;
+        return laplacianX + laplacianY + laplacianZ;
     }
 
     /**
@@ -221,9 +231,9 @@ public class VolumeRender {
             intersection.setC(exactZ);
         }
 
-        final double LIGHT_SOURCE_Y = (double) ctScan.getCT_z_axis() / 4;
-        final double LIGHT_SOURCE_Z = ctScan.getCT_x_axis();
-        Vector lightSourcePosition = new Vector(lightSourceX, LIGHT_SOURCE_Y, LIGHT_SOURCE_Z);
+        final double LIGHT_SOURCE_Y = (double) volume.getCT_z_axis() / 4;
+        final double LIGHT_SOURCE_Z = volume.getCT_x_axis();
+        Vector lightSourcePosition = new Vector(lightX, LIGHT_SOURCE_Y, LIGHT_SOURCE_Z);
         Vector lightDirection = lightSourcePosition.subtract(intersection);
         lightDirection.normalize();
         surfaceNormal.normalize();
@@ -231,7 +241,7 @@ public class VolumeRender {
     }
 
     /**
-     * Calculates and returns the an estimate of the gradient/slope at the specified position, in which the z
+     * Calculates and returns an estimate of the gradient/slope at the specified position, in which the z
      * axis is an integer. This calculation uses both central, forward and backward differance.
      *
      * @param view    The direction to view the scan/dataset from. i.e front, side or top.
@@ -263,7 +273,7 @@ public class VolumeRender {
     }
 
     /**
-     * Calculates and returns the an estimate of the gradient/slope at the specified position, in which the z
+     * Calculates and returns an estimate of the gradient/slope at the specified position, in which the z
      * axis is a non integer position. This calculation uses both central, forward and backward differance.
      *
      * @param view    The direction to view the scan/dataset from. i.e front, side or top.
@@ -419,28 +429,10 @@ public class VolumeRender {
     }
 
     /**
-     * The second transfer function for the visible human dataset. Calculates pixel colour from a
-     * voxel.
-     *
-     * @param voxel The voxel to get RGB value for.
-     * @return The RGB and opacity value for the pixel.
+     * Implements Levoy's tent function.
+     * @param voxel voxel to find the RGBA values for
+     * @return RGBA values for the specified voxel
      */
-    private double[] transferFunctionTwo(short voxel) {
-        double R, G, B, O;
-        if ((voxel > -299) && (voxel < 50)) {
-            R = 1.0;
-            G = 0.79;
-            B = 0.6;
-            O = opacity;
-        } else {
-            R = 0;
-            G = 0;
-            B = 0;
-            O = 0;
-        }
-        return new double[]{R, G, B, O};
-    }
-
     private double[] transferFunctionTent(short voxel) {
         double R, G, B, O, levWidth;
         levWidth = 0.8;
@@ -468,6 +460,12 @@ public class VolumeRender {
         return new double[]{R, G, B, O};
     }
 
+    /**
+     * Classify intensities in the color lookup table
+     * @param index entry for the lookup table
+     * @param gradientMag gradient magnitude
+     * @return classified lookup table
+     */
     public ColorComposer colorClassifier(int index, double gradientMag) {
         double nrMagnitudeBits = 7347825;
         int nrIntensityBits = 3365;
@@ -485,6 +483,12 @@ public class VolumeRender {
                 (lut[index * 3 + 2] & 0xff));
     }
 
+    /**
+     * 2-dimensional Intensity - Gradient Magnitude alpha color transfer function
+     * @param voxel The voxel to get RGBA value for.
+     * @param gradientMagnitude gradient magnitude at a current position.
+     * @return RGBA values for a specified pixel.
+     */
     private double[] transferFunction2D(short voxel, double gradientMagnitude) {
         double R = 0, G = 0, B = 0, O, levWidth;
         levWidth = 2;
@@ -495,6 +499,7 @@ public class VolumeRender {
         } else {
             O = 0.0;
         }
+        //if color transfer function should be applied
         if (tfColor) {
             try {
                 R = colorClassifier(Math.abs(voxel / 10), gradientMagnitude).getRed();
@@ -544,30 +549,32 @@ public class VolumeRender {
      * the 2nd dimension is the gradient magnitude
      * the 3rd dimension is the second derivative - the laplacian operator
      * @param voxel The voxel to get alpha value for.
-     * @param dfxi The gradient magnitude of the specified voxel
+     * @param gradientMag The gradient magnitude of the specified voxel
      * @param secondDerivative the second derivative for the specified voxel
      * @return alpha value for the pixel.
      */
-    private double[] transferFunction3D(short voxel, double dfxi, double secondDerivative) {
+    private double[] transferFunction3D(short voxel, double gradientMag, double secondDerivative) {
         double R = 0, G = 0, B = 0, O, levWidth;
         levWidth = 2;
-        if (dfxi == 0 && voxel == threshold) {
+        if (gradientMag == 0 && voxel == threshold) { //if 0 change detected at the threshold
             O = 1.0;
-        } else if (dfxi > 0 && voxel >= (threshold - levWidth * dfxi) && voxel <= (threshold + levWidth * dfxi)) {
-            O = (1 - (1 / levWidth) * (1 / (secondDerivative)) * Math.abs((threshold - voxel) / dfxi));
+        } else if (gradientMag > 0 && voxel >= (threshold - levWidth * gradientMag) && voxel <= (threshold + levWidth * gradientMag)) { //on the boundaries of the threshold
+            O = (1 - (1 / levWidth) * (1 / (secondDerivative)) * Math.abs((threshold - voxel) / gradientMag));
         } else {
             O = 0.0;
         }
+        //if color transfer function should be applied
         if (tfColor) {
             try {
-                R = colorClassifier((int) Math.abs(voxel / 10), dfxi).getRed();
-                B = colorClassifier((int) Math.abs(voxel / 10), dfxi).getBlue();
-                G = colorClassifier((int) Math.abs(voxel / 10), dfxi).getGreen();
+                R = colorClassifier( Math.abs(voxel / 10), gradientMag).getRed();
+                B = colorClassifier( Math.abs(voxel / 10), gradientMag).getBlue();
+                G = colorClassifier( Math.abs(voxel / 10), gradientMag).getGreen();
             } catch (Exception e) {
                 R = 1;
                 B = 1;
                 G = 1;
             }
+            //apply regular 1D color transfer function
         } else {
             return hounsefieldColorTF(voxel, O);
         }
@@ -602,12 +609,20 @@ public class VolumeRender {
         this.opacity = opacity;
     }
 
+    /**
+     * Sets if color transfer function should be used.
+     */
     public void changeColor() {
         tfColor = !this.tfColor;
     }
 
-    public void setTreshold(double treshold) {
-        this.threshold = treshold;
+    /**
+     * Sets the threshold for the transfer function
+     * @param threshold threshold of the function
+     */
+    public void setThreshold(double threshold) {
+        this.threshold = threshold;
+
     }
 
     /**
@@ -705,7 +720,7 @@ public class VolumeRender {
      *
      * @param position The location along the X axis.
      */
-    public void setLightSourceX(int position) {
-        this.lightSourceX = position;
+    public void setLightX(int position) {
+        this.lightX = position;
     }
 }

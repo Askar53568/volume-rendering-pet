@@ -48,7 +48,6 @@ public class Volume {
                     } else {
                         read = (short) (b1 << 8 | b2);
                     }
-
                     if (read < min) min = read;
                     if (read > max) max = read;
                     volume[k][j][i] = read;

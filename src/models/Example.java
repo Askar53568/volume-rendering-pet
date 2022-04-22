@@ -23,9 +23,8 @@ public class Example{
     int CT_x_axis = 256;
     int CT_y_axis = 256;
     int CT_z_axis = 113;
-    VJClassifierLevoy levoyClass = new VJClassifierLevoy();
+    RGBClassifier levoyClass = new RGBClassifier();
     byte [] lut = levoyClass.defaultLUT();
-    //byte [] lut = defaultLUT();
     float [] opacityTable;
     int nrMagnitudeBits = 7347825;
     int nrIntensityBits = 3365;
@@ -44,7 +43,7 @@ public class Example{
         int CT_x_axis = 256;
         int CT_y_axis = 256;
         int CT_z_axis = 113;
-        VJClassifierLevoy levoyClass = new VJClassifierLevoy();
+        RGBClassifier levoyClass = new RGBClassifier();
         byte [] lut = levoyClass.defaultLUT();
         //byte [] lut = defaultLUT();
         float [] opacityTable;
@@ -64,8 +63,7 @@ public class Example{
 
     //Function to read in the cthead data set
     public void ReadData() throws IOException {
-        File file = new File("C:\\Users\\Asus\\IdeaProjects\\volume-rendering-master\\src\\models\\CThead");
-        //File file = new File("C:\\Users\\Asus\\IdeaProjects\\graphics-test\\src\\CThead");
+        File file = new File("C:\\Users\\Asus\\IdeaProjects\\volume-rendering-master\\src\\data\\CThead_256_256_113");
         //Read the data quickly via a buffer (in C++ you can just do a single fread - I couldn't find if there is an equivalent in Java)
         DataInputStream in = new DataInputStream(new BufferedInputStream(new FileInputStream(file)));
 
@@ -103,30 +101,6 @@ public class Example{
 
     }
 
-    public byte[] defaultLUT()
-    {
-        lut = new byte[nrIntensityBits];
-        for (int index = 1; index < Math.pow(2, nrIntensityBits)*3; index++)
-        {
-            if (index == 0)
-            {
-                // white
-                lut[index*3+0] = (byte) 255;
-                lut[index*3+1] = (byte) 255;
-                lut[index*3+2] = (byte) 255;
-            }
-            else
-            {
-
-                java.awt.Color c = java.awt.Color.getHSBColor(index, 1f, 1f);
-                lut[index*3+0] = (byte) c.getRed();
-                lut[index*3+1] = (byte) c.getGreen();
-                lut[index*3+2] = (byte) c.getBlue();
-            }
-        }
-        return lut;
-    }
-
     public void resizePopUp(WritableImage image, int scaling) {
         Stage window = new Stage();
         ImageView resizedImage = new ImageView(biLinear(image, scaling));
@@ -137,34 +111,6 @@ public class Example{
         Scene sizeScene = new Scene(root, resizedImage.getFitWidth() - 1, resizedImage.getFitHeight() - 1);// to remove the extra pixel on the right and bottom
         window.setScene(sizeScene);
         window.show();
-    }
-    protected double  opacityCompute(double  dfxi, double  intensity, double  threshold, double  width)
-    {
-        double  opacity;
-        if (dfxi == 0 && intensity == threshold)
-            opacity = 1;
-        else if (dfxi > 0 &&
-                intensity <= (threshold +  width * dfxi) &&
-                intensity >= (threshold - width * dfxi))
-            opacity = 1 - (1 / width) * Math.abs((threshold - intensity) / dfxi);
-        else
-            opacity = 0;
-        return opacity;
-    }
-    public void setupOpacities(double  oversampling)
-    {
-        double threshold = 128.0;
-        double width = 2.0;
-        for (int magnitude = 0; magnitude < (int) Math.pow(2, nrMagnitudeBits); magnitude++)
-            for (int intensity = 0; intensity < maxIntensity; intensity++)
-            {
-                double  dfxi = magnitude << Math.min(0, (8 - nrMagnitudeBits));
-                double  uncorrectedOpacity = opacityCompute(dfxi,
-                        intensity, threshold, width);
-                int ind = (magnitude << nrIntensityBits) | intensity;
-                opacityTable[ind] =
-                        1f - (float) Math.pow(1 - uncorrectedOpacity, oversampling);
-            }
     }
 
     public float gradientMagnitude(int k, int j, int i) {
@@ -191,149 +137,7 @@ public class Example{
         return color;
     }
 
-
-    public void levoyTentFront(WritableImage image, double levThreshold) throws IOException {
-        ReadData();
-        int w = (int) image.getWidth(), h = (int) image.getHeight();
-        PixelWriter image_writer = image.getPixelWriter();
-        for (int k = 1; k < h - 1; k++) {
-            for (int i = 1; i < w - 1; i++) {
-                double levWidth = 2.0;
-                double transparency = 1;
-                double red = 0;
-                double blue = 0;
-                double green = 0;
-                double opacity = 0;
-                double R = 1.0;
-                double B = 1.0;
-                double G = 1.0;
-                image_writer.setColor(i, k, Color.color(0, 0, 0, 1.0));
-                for (int j = 1; j < 254; j++) {
-                    int intensity = cthead[k][j][i];
-                    if ((intensity >= levThreshold) &&
-                            (intensity < (levThreshold + levWidth))) {
-                        opacity = ((float) intensity - levThreshold) / levWidth*2;
-                    } else if (intensity < levThreshold) {
-                        opacity = 0.0;
-                    } else {
-                        opacity = 0.06;
-                        if(color){
-                            R = classic1DTransferRGB(k,j,i).getR();
-                            B = classic1DTransferRGB(k,j,i).getB();
-                            G = classic1DTransferRGB(k,j,i).getG();
-                        }else{
-                            R = 1.0;
-                            B = 1.0;
-                            G = 1.0;
-                        }
-                        red = clamp((red + (transparency * opacity * 1.0 * R)), 0.0, 1.0);
-                        blue = clamp((blue + (transparency * opacity * 1.0 * B)), 0.0, 1.0);
-                        green = clamp((green + (transparency * opacity * 1.0 * G)), 0.0, 1.0);
-                        transparency = transparency * (1 - opacity);
-                    }
-                }
-                image_writer.setColor(i, k, Color.color(red, blue, green, 1));
-            }
-        }
-    }
-
-    public WritableImage levoyTentSide(WritableImage image, double levThreshold) throws IOException {
-        ReadData();
-        int w = (int) image.getWidth(), h = (int) image.getHeight();
-        int newWidth = 256;
-        int newHeight = 113;
-        WritableImage outputImage = new WritableImage((int) newWidth, (int) newHeight);
-        PixelWriter image_writer = image.getPixelWriter();
-        for (int k = 1; k < h - 1; k++) {
-            for (int j = 1; j < w - 1; j++) {
-                double levWidth = 2;
-                double transparency = 1;
-                double red = 0;
-                double blue = 0;
-                double green = 0;
-                double opacity = 0;
-                double R = 1.0;
-                double B = 1.0;
-                double G = 1.0;
-                image_writer.setColor(j, k, Color.color(0, 0, 0, 1.0));
-                for (int i = 1; i < 254; i++) {
-                    int intensity = cthead[k][j][i];
-                    if ((intensity >= levThreshold) &&
-                            (intensity < (levThreshold + levWidth))) {
-                        opacity = ((float) intensity - levThreshold) / levWidth*20;
-                    } else if (intensity < levThreshold) {
-                        opacity = 0.0;
-                    } else {
-                        if(color){
-                            R = classic1DTransferRGB(k,j,i).getR();
-                            B = classic1DTransferRGB(k,j,i).getB();
-                            G = classic1DTransferRGB(k,j,i).getG();
-                        }else{
-                            R = 1.0;
-                            B = 1.0;
-                            G = 1.0;
-                        }
-                        opacity = 0.07;
-                        red = clamp((red + (transparency * opacity * 1.0 * R)), 0.0, 1.0);
-                        blue = clamp((blue + (transparency * opacity * 1.0 * B)), 0.0, 1.0);
-                        green = clamp((green + (transparency * opacity * 1.0 * G)), 0.0, 1.0);
-                        transparency = transparency * (1 - opacity);
-                    }
-                }
-                image_writer.setColor(j, k, Color.color(red, blue, green, 1));
-            }
-        }
-        return outputImage;
-    }
-    public WritableImage levoyTentTop(WritableImage image, double levThreshold) throws IOException {
-        ReadData();
-        int w = (int) image.getWidth(), h = (int) image.getHeight();
-        int newWidth = 256;
-        int newHeight = 113;
-        WritableImage outputImage = new WritableImage((int) newWidth, (int) newHeight);
-        PixelWriter image_writer = image.getPixelWriter();
-        for (int j = 1; j < h-1; j++) {
-            for (int i = 1; i < w-1; i++) {
-                double levWidth = 2;
-                double transparency = 1;
-                double red = 0;
-                double blue = 0;
-                double green = 0;
-                double opacity = 0;
-                double R = 1.0;
-                double B = 1.0;
-                double G = 1.0;
-                image_writer.setColor(i, j, Color.color(0, 0, 0, 1.0));
-                for (int k = 1; k < 112; k++) {
-                    int intensity = cthead[k][j][i];
-                    if ((intensity >= levThreshold) &&
-                            (intensity < (levThreshold + levWidth))) {
-                        opacity = ((float) intensity - levThreshold) / levWidth*20;
-                    } else if (intensity < levThreshold) {
-                        opacity = 0.0;
-                    } else {
-                        if(color){
-                            R = classic1DTransferRGB(k,j,i).getR();
-                            B = classic1DTransferRGB(k,j,i).getB();
-                            G = classic1DTransferRGB(k,j,i).getG();
-                        }else{
-                            R = 1.0;
-                            B = 1.0;
-                            G = 1.0;
-                        }
-                        opacity = 0.07;
-                        red = clamp((red + (transparency * opacity * 1.0 * R)), 0.0, 1.0);
-                        blue = clamp((blue + (transparency * opacity * 1.0 * B)), 0.0, 1.0);
-                        green = clamp((green + (transparency * opacity * 1.0 * G)), 0.0, 1.0);
-                        transparency = transparency * (1 - opacity);
-                    }
-                }
-                image_writer.setColor(i, j, Color.color(red, blue, green, 1));
-            }
-        }
-        return outputImage;
-    }
-    public VJAlphaColor alphacolor(int index, double gradientMag)
+    public ColorComposer alphacolor(int index, double gradientMag)
     {
         double nrMagnitudeBits = 7347825;
         int nrIntensityBits = 3365;
@@ -345,7 +149,7 @@ public class Example{
         int igradient = (int) (gradientMag * fractionMagnitude) & maskMagnitude;
         // Fit gradient magnitude and intensity into 16 bits.
         int entry = (igradient << nrIntensityBits) | index;
-        return new VJAlphaColor(1.0,
+        return new ColorComposer(1.0,
                 (lut[index*3+0]&0xff),
                 (lut[index*3+1]&0xff),
                 (lut[index*3+2]&0xff));
@@ -354,8 +158,6 @@ public class Example{
     public void opacityComputeSideNoReturn(WritableImage image, double threshold) throws IOException {
         ReadData();
         int w = (int) image.getWidth(), h = (int) image.getHeight();
-        int newWidth = 256;
-        int newHeight = 113;
         PixelWriter image_writer = image.getPixelWriter();
         for (int k = 1; k < h - 1; k++) {
             for (int j = 1; j < w - 1; j++) {
@@ -392,7 +194,6 @@ public class Example{
                     transparency = transparency * (1 - opacity);
                 }
                 image_writer.setColor(j, k, Color.color(red, blue, green, 1));
-
             }
         }
     }
@@ -414,21 +215,22 @@ public class Example{
                 double G = 1.0;
                 image_writer.setColor(j, k, Color.color(0, 0, 0, 1.0));
                 for (int i = 1; i < 254; i++) {
-                    int intensity = secondDerivative(k, j, i);
+                    int intensity = cthead[k][j][i];
+                    int laplacian = secondDerivative(k, j, i);
                     double dfxi = gradientMagnitude(k, j, i);
-                    if (dfxi == 0 && intensity == threshold) {
+                    if (dfxi == 0 && laplacian == threshold) {
                         opacity = 1.0;
                     } else if (dfxi > 0 &&
-                            intensity <= (threshold + width * dfxi) &&
-                            intensity >= (threshold - width * dfxi)) {
-                        opacity = 1 - (1 / width) * Math.abs(((threshold - intensity) / dfxi));
+                            laplacian <= (threshold + width * dfxi) &&
+                            laplacian >= (threshold - width * dfxi)) {
+                        opacity = 1 - (1 / width) * Math.abs(((threshold - laplacian) / dfxi));
                     } else {
                         opacity = 0.0;
                     }
                     if (color) {
-                        R = alphacolor(Math.abs(intensity/100),dfxi).getRed();
-                        B = alphacolor(Math.abs(intensity/100),dfxi).getBlue();
-                        G = alphacolor(Math.abs(intensity/100),dfxi).getGreen();
+                        R = alphacolor(Math.abs(intensity/10),dfxi).getRed();
+                        B = alphacolor(Math.abs(intensity/10),dfxi).getBlue();
+                        G = alphacolor(Math.abs(intensity/10),dfxi).getGreen();
                     }
                     red = clamp((red + (transparency * opacity * 1.0 * R)), 0.0, 1.0);
                     blue = clamp((blue + (transparency * opacity * 1.0 * B)), 0.0, 1.0);
@@ -439,31 +241,6 @@ public class Example{
 
             }
         }
-    }
-
-    public RGBControlPoint classic1DTransferRGB(int k, int j , int i){
-        RGBControlPoint result = new RGBControlPoint(1.0,1.0,1.0);
-        if (cthead[k][j][i] < -300) {
-            result.setR(1.0);
-            result.setB(0.79);
-            result.setG(0.6);
-        }
-        if ((cthead[k][j][i] >= -300) && (cthead[k][j][i] <= 49)) {
-            result.setR(1.0);
-            result.setB(0.79);
-            result.setG(0.6);
-        }
-        if (cthead[k][j][i] >= 50 && cthead[k][j][i] <= 299) {
-            result.setR(1.0);
-            result.setB(0.79);
-            result.setG(0.6);
-        }
-        if (cthead[k][j][i] >= 300 && cthead[k][j][i] <= 4096) {
-            result.setR(1.0);
-            result.setB(1.0);
-            result.setG(1.0);
-        }
-        return result;
     }
     public void opacityComputeFront(WritableImage image, double threshold) throws IOException {
         ReadData();
@@ -573,7 +350,6 @@ public class Example{
 
                 int x1  = (int) Math.floor(pixelX);
                 int y1 =(int) Math.floor(pixelY);
-                //System.out.println("diffInX: "+ diffInX + "  -  diffInY: " + diffInY);
                 double a = reader.getColor(x1,y1).getGreen();
                 double b = reader.getColor(x1 + 1, y1).getGreen();
                 double c = reader.getColor(x1,y1+1).getGreen();
@@ -591,61 +367,6 @@ public class Example{
             }
         }
         return newImage;
-    }
-    public WritableImage BilResize(WritableImage image, double newWidth, double newHeight) {
-        double oldWidth = image.getWidth();
-        double oldHeight = image.getHeight();
-        WritableImage outputImage = new WritableImage((int) newWidth, (int) newHeight);
-        PixelReader pixelReader = image.getPixelReader();
-        PixelWriter pixelWriter = outputImage.getPixelWriter();
-        double x;
-        double y;
-        double y1;
-        double y2;
-        double x1;
-        double x2;
-        // setting everything to a double to prevent any integer division and making the resize more pixelated as if it is Nearest Neighbour
-        for (int j = 0; j < newHeight - 1; j++) {
-            for (int i = 0; i < newWidth - 1; i++) {
-                //System.out.println("i= "+i+" j= "+j+" x = "+x);
-                x = i * oldWidth / newWidth;
-                y = j * oldHeight / newHeight;
-                x1 = Math.floor(x);
-                y1 = Math.floor(y);
-                x2 = x1 + 1; // ceiling creates errors
-                y2 = y1 + 1;
-                double c1;
-                double c2;
-                double c3;
-
-                if (x2 >= image.getWidth() || y2 >= image.getHeight()) {
-                    Color newcol = new Color(0, 0, 0, 0); // when the bounds are exceeded, there is a line of pixels on the side and bottom.
-                    // This makes those pixels black to not be stuck out
-                    pixelWriter.setColor(i, j, newcol);
-                    //System.out.println("Image out of bounds1");
-                } else if (x1 > image.getWidth() || y1 > image.getHeight()) {
-                    //System.out.println("Image out of bounds2");
-                } else {
-                    Color v1 = pixelReader.getColor((int) x1, (int) y1);
-                    Color v2 = pixelReader.getColor((int) x2, (int) y1);
-                    double v1_double = v1.getBlue();
-                    double v2_double = v2.getBlue();
-                    // c is colour, v is value
-
-                    c1 = v1_double + (v2_double - v1_double) * ((x - x1) / (x2 - x1));
-                    c2 = v1_double + (v2_double - v1_double) * ((x - x1) / (x2 - x1));
-                    c3 = c1 + (c2 - c1) * ((y - y1) / (y2 - y1));
-                    //System.out.println(c3);
-                    Color colour = new Color(c3, c3, c3, 1);// all RGB values are the same in the data
-                    //System.out.println(colour.getRed());
-                    pixelWriter.setColor(i, j, colour);
-
-                }
-            }
-        }
-        //System.out.println("Bilinear");
-        return outputImage;
-
     }
 
     }

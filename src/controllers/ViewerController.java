@@ -78,7 +78,7 @@ public class ViewerController {
         secondViewSlider.setMax(4500);
         thresholdSlider.setMax(4500);
         thresholdSlider.setMin(-1000);
-        thirdViewSlider.setMax(1500);
+        thirdViewSlider.setMax(4500);
 
 
         tfChoice.getItems().add("TF1");
@@ -150,9 +150,7 @@ public class ViewerController {
 
         thirdViewSlider.valueProperty().addListener((observable, oldValue, newValue) -> {
             try {
-                example.levoyTentFront(front_image, newValue.doubleValue());
-                example.levoyTentSide(side_image, newValue.doubleValue());
-                example.levoyTentTop(top_image, newValue.doubleValue());
+                example.laplacianSide(side_image, newValue.doubleValue());
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -193,14 +191,6 @@ public class ViewerController {
             volumeRender();
         });
 
-        mipButton.setOnAction(e -> {
-            try {
-                example.opacityComputeSideNoReturn(side_image, 1000);
-                example.opacityComputeFront(front_image, 1000);
-            } catch (IOException ex) {
-                ex.printStackTrace();
-            }
-        });
         colorButton.setOnAction(e -> {
             String value = example.getColor() ? "Off" : "On";
             colorButton.setText("Color: "+ value);

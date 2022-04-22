@@ -1,10 +1,10 @@
 package models;
+
 import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
 import javafx.scene.paint.Color;
-import java.util.stream.IntStream;
 
-import static java.lang.Math.sqrt;
+import java.util.stream.IntStream;
 
 /**
  * Represents a ct scan viewer and the algorithms that can be carried out on them.
@@ -16,10 +16,9 @@ public class CTViewer {
     private final int FRONT_HEIGHT;
     private final int SIDE_WIDTH;
     private final int SIDE_HEIGHT;
-    //private final double BONE_VALUE = -300;
     private final Volume ctScan;
-    VJClassifierLevoy levoyClass = new VJClassifierLevoy();
-    byte [] lut = levoyClass.defaultLUT();
+    RGBClassifier levoyClass = new RGBClassifier();
+    byte[] lut = levoyClass.defaultLUT();
     private Example example;
     private boolean tfColor = false;
     private double opacity = 0.12;
@@ -31,6 +30,7 @@ public class CTViewer {
 
     /**
      * Creates a CT viewer.
+     *
      * @param volume The volume to use/display.
      */
     public CTViewer(Volume volume) {
@@ -44,11 +44,12 @@ public class CTViewer {
     }
 
     /**
-     *Gets the correct voxel for the direction/view you want to see.
+     * Gets the correct voxel for the direction/view you want to see.
+     *
      * @param view The view/direction to display e.g top, side or front
-     * @param x The x value to get.
-     * @param y The y value to get.
-     * @param z The z value to get.
+     * @param x    The x value to get.
+     * @param y    The y value to get.
+     * @param z    The z value to get.
      * @return The correct voxel.
      */
     public short getVoxel(String view, int x, int y, int z) {
@@ -63,8 +64,9 @@ public class CTViewer {
 
     /**
      * Draws the specified slice of the CAT scan to screen.
+     *
      * @param image The image to write to.
-     * @param view The direction of CAT scan to view. Options are front, side or top.
+     * @param view  The direction of CAT scan to view. Options are front, side or top.
      * @param slice The slice to display.
      */
     public void drawSlice(WritableImage image, String view, int slice) {
@@ -85,8 +87,9 @@ public class CTViewer {
 
     /**
      * Performs maximum intensity projection on the specified image/scan.
+     *
      * @param image The image to write to.
-     * @param view The direction to view the scan/dataset from. i.e front, side or top.
+     * @param view  The direction to view the scan/dataset from. i.e front, side or top.
      */
     public void maximumIntensityProjection(WritableImage image, String view) {
         PixelWriter image_writer = image.getPixelWriter();
@@ -98,7 +101,7 @@ public class CTViewer {
                 short maximum = ctScan.getMin();
                 for (int k = 0; k < depth; k++) {
                     short currentVoxel = getVoxel(view, i, j, k);
-                    if (currentVoxel > maximum){
+                    if (currentVoxel > maximum) {
                         maximum = currentVoxel;
                     }
                 }
@@ -110,8 +113,9 @@ public class CTViewer {
 
     /**
      * Performs volume rendering on the specified image/scan.
+     *
      * @param image The image to write to.
-     * @param view The direction to view the scan/dataset from. i.e front, side or top.
+     * @param view  The direction to view the scan/dataset from. i.e front, side or top.
      */
     public WritableImage volumeRender(WritableImage image, String view, String transferFunction) {
         int width = (int) image.getWidth();
@@ -120,8 +124,8 @@ public class CTViewer {
         PixelWriter writer = image1.getPixelWriter();
         int depth = (view.equals("top")) ? ctScan.getCT_z_axis() : ctScan.getCT_x_axis();
 
-        IntStream.range(1, height-1).parallel().forEach(j -> {
-            IntStream.range(1, width-1).parallel().forEach(i -> {
+        IntStream.range(1, height - 1).parallel().forEach(j -> {
+            IntStream.range(1, width - 1).parallel().forEach(i -> {
                 double alphaAccum = 1;
                 double redAccum = 0;
                 double greenAccum = 0;
@@ -129,7 +133,7 @@ public class CTViewer {
                 boolean hitBone = false;
                 double L = 1;
 
-                for (int k = 1; k < depth-1 && !hitBone; k++) {
+                for (int k = 1; k < depth - 1 && !hitBone; k++) {
                     short currentVoxel = getVoxel(view, i, j, k);
                     if (currentVoxel >= threshold && isGradient) {
                         L = getDiffuseLighting(view, i, j, k, currentVoxel, height, width, depth);
@@ -137,17 +141,17 @@ public class CTViewer {
                     }
 
                     if (!isGradient || hitBone) {
-                            final int RED = 0;
-                            final int GREEN = 1;
-                            final int BLUE = 2;
-                            double dfxi = getExactGradient(view,currentVoxel,i,j,k,height,width,depth);
-                            double secondDerivative = getSecondOrderDerivative(view, i, j, k);
-                            double[] colour = getTransferFunction(currentVoxel, transferFunction, dfxi, secondDerivative);
-                            double sigma = colour[3];
-                            redAccum = Math.min(Math.max(redAccum + (alphaAccum * sigma * L * colour[RED]), 0), 1);
-                            greenAccum = Math.min(Math.max(greenAccum + (alphaAccum * sigma * L * colour[GREEN]), 0), 1);
-                            blueAccum = Math.min(Math.max(blueAccum + (alphaAccum * sigma * L * colour[BLUE]), 0), 1);
-                            alphaAccum = alphaAccum * (1 - sigma);
+                        final int RED = 0;
+                        final int GREEN = 1;
+                        final int BLUE = 2;
+                        double dfxi = getExactGradient(view, currentVoxel, i, j, k, height, width, depth);
+                        double secondDerivative = getSecondOrderDerivative(view, i, j, k);
+                        double[] colour = getTransferFunction(currentVoxel, transferFunction, dfxi, secondDerivative);
+                        double sigma = colour[3];
+                        redAccum = Math.min(Math.max(redAccum + (alphaAccum * sigma * L * colour[RED]), 0), 1);
+                        greenAccum = Math.min(Math.max(greenAccum + (alphaAccum * sigma * L * colour[GREEN]), 0), 1);
+                        blueAccum = Math.min(Math.max(blueAccum + (alphaAccum * sigma * L * colour[BLUE]), 0), 1);
+                        alphaAccum = alphaAccum * (1 - sigma);
                     }
                 }
                 writer.setColor(i, j, Color.color(redAccum, greenAccum, blueAccum, 1));
@@ -156,54 +160,46 @@ public class CTViewer {
         return image1;
     }
 
-    public double getExactGradient(String view, short currentVoxel, int x, int y, int z, int height, int width, int depth){
+    public double getExactGradient(String view, short currentVoxel, int x, int y, int z, int height, int width, int depth) {
         double gradientMag = 0;
         Vector surfaceNormal = getSurfaceNormal(view, x, y, z, height, width, depth);
         if (z > 0) {
-                int prevRay = z - 1;
-                short prevVoxel = getVoxel(view, x, y, prevRay);
-                if (prevVoxel != currentVoxel) {
-                    double exactZ = linearInterpolationPosition(view, threshold, prevVoxel, currentVoxel, prevRay, z);
-                    surfaceNormal = getSurfaceNormal(view, x, y, exactZ, height, width, depth);
-                    gradientMag = surfaceNormal.getLength();
-                }
+            int prevRay = z - 1;
+            short prevVoxel = getVoxel(view, x, y, prevRay);
+            if (prevVoxel != currentVoxel) {
+                double exactZ = linearInterpolationPosition(view, threshold, prevVoxel, currentVoxel, prevRay, z);
+                surfaceNormal = getSurfaceNormal(view, x, y, exactZ, height, width, depth);
+                gradientMag = surfaceNormal.getLength();
+            }
         }
 
 
         return gradientMag;
     }
 
-    public double getSecondOrderDerivative(String view, int x, int y, int z){
-           double laplacianX = getVoxel(view, x, y, z - 1) - 2 * getVoxel(view, x, y, z) + getVoxel(view, x, y, z + 1);
-           double laplacianY = getVoxel(view, x, y - 1, z) - 2 * getVoxel(view, x, y, z) + getVoxel(view, x, y + 1, z);
-           double laplacianZ = getVoxel(view, x - 1, y, z) - 2 * getVoxel(view, x, y, z) + getVoxel(view, x + 1, y, z);
+    public double getSecondOrderDerivative(String view, int x, int y, int z) {
+        double laplacianX = getVoxel(view, x, y, z - 1) - 2 * getVoxel(view, x, y, z) + getVoxel(view, x, y, z + 1);
+        double laplacianY = getVoxel(view, x, y - 1, z) - 2 * getVoxel(view, x, y, z) + getVoxel(view, x, y + 1, z);
+        double laplacianZ = getVoxel(view, x - 1, y, z) - 2 * getVoxel(view, x, y, z) + getVoxel(view, x + 1, y, z);
         double laplacian = laplacianX + laplacianY + laplacianZ;
         return laplacian;
     }
 
     /**
      * Calculates the diffuse lighting/shading of a pixel.
-     * @param x The x axis location of the pixel.
-     * @param y The y axis location of the pixel.
-     * @param z The z or ray depth location of the pixel.
+     *
+     * @param x            The x axis location of the pixel.
+     * @param y            The y axis location of the pixel.
+     * @param z            The z or ray depth location of the pixel.
      * @param currentVoxel The voxel at the current position.
-     * @param height The height of the image.
-     * @param width The width of the image.
-     * @param depth Maximum depth of the ray.
+     * @param height       The height of the image.
+     * @param width        The width of the image.
+     * @param depth        Maximum depth of the ray.
      * @return The lighting value for the specified pixel.
      */
     public double getDiffuseLighting(String view, int x, int y, int z, int currentVoxel, int height, int width, int depth) {
         Vector surfaceNormal = getSurfaceNormal(view, x, y, z, height, width, depth);
         Vector intersection = new Vector(x, y, z);
-
-        if (isGradientInterpolation && z > 0) {
-            int prevRay = z - 1;
-            short prevVoxel = getVoxel(view, x, y, prevRay);
-            double exactZ =
-                    linearInterpolationPosition(view, threshold, prevVoxel, currentVoxel, prevRay, z);
-            surfaceNormal = getSurfaceNormal(view, x, y, exactZ, height, width, depth);
-            intersection.setC(exactZ);
-        }
 
         final double LIGHT_SOURCE_Y = (double) ctScan.getCT_z_axis() / 4;
         final double LIGHT_SOURCE_Z = ctScan.getCT_x_axis();
@@ -217,17 +213,18 @@ public class CTViewer {
     /**
      * Calculates and returns the an estimate of the gradient/slope at the specified position, in which the z
      * axis is an integer. This calculation uses both central, forward and backward differance.
-     * @param view The direction to view the scan/dataset from. i.e front, side or top.
+     *
+     * @param view    The direction to view the scan/dataset from. i.e front, side or top.
      * @param current The voxel at the position to find the slope for.
-     * @param x1 The x axis position of a voxel before the current.
-     * @param y1 The y axis position of a voxel before the current.
-     * @param z1 The integer z axis position of a voxel before the current.
-     * @param x2 The x axis position of a voxel after the current.
-     * @param y2 The y axis position of a voxel after the current.
-     * @param z2 The integer z axis position of a voxel after the current.
-     * @param min The minimum value a altered axis could be. (Normally 0).
-     * @param max The maximum value a altered axis could be. (Normally axis length - 1)
-     * @param i The axis you are altering.
+     * @param x1      The x axis position of a voxel before the current.
+     * @param y1      The y axis position of a voxel before the current.
+     * @param z1      The integer z axis position of a voxel before the current.
+     * @param x2      The x axis position of a voxel after the current.
+     * @param y2      The y axis position of a voxel after the current.
+     * @param z2      The integer z axis position of a voxel after the current.
+     * @param min     The minimum value a altered axis could be. (Normally 0).
+     * @param max     The maximum value a altered axis could be. (Normally axis length - 1)
+     * @param i       The axis you are altering.
      * @return The gradient calculated for the specified position.
      */
     public double getGradient(String view, double current, int x1, int y1, int z1, int x2,
@@ -248,17 +245,18 @@ public class CTViewer {
     /**
      * Calculates and returns the an estimate of the gradient/slope at the specified position, in which the z
      * axis is a non integer position. This calculation uses both central, forward and backward differance.
-     * @param view The direction to view the scan/dataset from. i.e front, side or top.
+     *
+     * @param view    The direction to view the scan/dataset from. i.e front, side or top.
      * @param current The voxel at the position to find the slope for.
-     * @param x1 The x axis position of a voxel before the current.
-     * @param y1 The y axis position of a voxel before the current.
-     * @param z1 The non-integer z axis position of a voxel before the current.
-     * @param x2 The x axis position of a voxel after the current.
-     * @param y2 The y axis position of a voxel after the current.
-     * @param z2 The non-integer z axis position of a voxel after the current.
-     * @param min The minimum value a altered axis could be. (Normally 0).
-     * @param max The maximum value a altered axis could be. (Normally axis length - 1)
-     * @param i The axis you are altering.
+     * @param x1      The x axis position of a voxel before the current.
+     * @param y1      The y axis position of a voxel before the current.
+     * @param z1      The non-integer z axis position of a voxel before the current.
+     * @param x2      The x axis position of a voxel after the current.
+     * @param y2      The y axis position of a voxel after the current.
+     * @param z2      The non-integer z axis position of a voxel after the current.
+     * @param min     The minimum value a altered axis could be. (Normally 0).
+     * @param max     The maximum value a altered axis could be. (Normally axis length - 1)
+     * @param i       The axis you are altering.
      * @return The gradient calculated for the specified position.
      */
     public double getGradient(String view, double current, int x1, int y1, double z1, int x2,
@@ -277,54 +275,56 @@ public class CTViewer {
     }
 
 
-
     /**
      * Calculates the surface normal for the current voxel at all integer positions.
-     * @param view The scan direction. i.e top, front or side
-     * @param x The x location of voxel.
-     * @param y The y location of voxel.
-     * @param z The z/ray location of voxel.
+     *
+     * @param view   The scan direction. i.e top, front or side
+     * @param x      The x location of voxel.
+     * @param y      The y location of voxel.
+     * @param z      The z/ray location of voxel.
      * @param height The height of the image.
-     * @param width The width of the image.
-     * @param depth Maximum depth of the ray.
+     * @param width  The width of the image.
+     * @param depth  Maximum depth of the ray.
      * @return The surface normal of the specified voxel
      */
     public Vector getSurfaceNormal(String view, int x, int y, int z, int height, int width, int depth) {
         double xGradient, yGradient, zGradient;
         short currentVoxel = getVoxel(view, x, y, z);
-        xGradient = getGradient(view, currentVoxel, x-1, y, z, x+1, y, z,0,(width-1),x);
-        yGradient = getGradient(view, currentVoxel, x, y-1, z, x, y+1, z,0,height-1,y);
-        zGradient = getGradient(view, currentVoxel, x, y, z-1, x, y, z+1,0,depth-1, z);
+        xGradient = getGradient(view, currentVoxel, x - 1, y, z, x + 1, y, z, 0, (width - 1), x);
+        yGradient = getGradient(view, currentVoxel, x, y - 1, z, x, y + 1, z, 0, height - 1, y);
+        zGradient = getGradient(view, currentVoxel, x, y, z - 1, x, y, z + 1, 0, depth - 1, z);
         return new Vector(xGradient, yGradient, zGradient);
     }
 
     /**
      * Calculates the surface normal for the current voxel of a non integer position z.
-     * @param view The scan direction. i.e top, front or side
-     * @param x The x location of voxel.
-     * @param y The y location of voxel.
-     * @param z The exact z/ray location of voxel.
+     *
+     * @param view   The scan direction. i.e top, front or side
+     * @param x      The x location of voxel.
+     * @param y      The y location of voxel.
+     * @param z      The exact z/ray location of voxel.
      * @param height The height of the image.
-     * @param width The width of the image.
-     * @param depth Maximum depth of the ray.
+     * @param width  The width of the image.
+     * @param depth  Maximum depth of the ray.
      * @return The surface normal of the specified voxel
      */
     public Vector getSurfaceNormal(String view, int x, int y, double z, int height, int width, int depth) {
         double xGradient, yGradient, zGradient;
         double currentVoxel = getRealVoxel(view, x, y, z);
-        xGradient = getGradient(view, currentVoxel,x-1, y, z, x+1, y, z, 0, width-1, x);
-        yGradient = getGradient(view, currentVoxel, x, y-1, z, x,y+1, z,0,height-1, y);
-        zGradient = getGradient(view, currentVoxel, x, y, z-1, x, y,z+1,1,depth-2, z);
+        xGradient = getGradient(view, currentVoxel, x - 1, y, z, x + 1, y, z, 0, width - 1, x);
+        yGradient = getGradient(view, currentVoxel, x, y - 1, z, x, y + 1, z, 0, height - 1, y);
+        zGradient = getGradient(view, currentVoxel, x, y, z - 1, x, y, z + 1, 1, depth - 2, z);
         return new Vector(xGradient, yGradient, zGradient);
     }
 
 
     /**
      * Gets the voxel at a non integer position z.
+     *
      * @param view The direction viewing the ct image from.
-     * @param x The x value to get.
-     * @param y The y value to get.
-     * @param z The non integer z value to get.
+     * @param x    The x value to get.
+     * @param y    The y value to get.
+     * @param z    The non integer z value to get.
      * @return Voxel at non-integer position.
      */
     public double getRealVoxel(String view, int x, int y, double z) {
@@ -337,20 +337,22 @@ public class CTViewer {
 
     /**
      * Calculates the voxel at a non-integer position along a single axis.
+     *
      * @param v1 The voxel at the previous integer position.
      * @param v2 The voxel at the following integer position.
      * @param x1 The integer position before.
-     * @param x The non-integer position to find.
+     * @param x  The non-integer position to find.
      * @param x2 The integer position after.
      * @return The voxel value at non integer position X.
      */
     public double linearInterpolationVoxel(double v1, double v2, double x1, double x, double x2) {
-        return (v1 + (v2 - v1) * ((x - x1)/(x2 - x1)));
+        return (v1 + (v2 - v1) * ((x - x1) / (x2 - x1)));
     }
 
     /**
      * Calculates the non-integer position of a specified value within two integer positions.
-     * @param v The value to get the position of.
+     *
+     * @param v  The value to get the position of.
      * @param v1 The value at the previous integer position.
      * @param v2 The value at the following integer position.
      * @param x1 The previous integer position.
@@ -358,19 +360,20 @@ public class CTViewer {
      * @return The non integer position of the specified value.
      */
     public double linearInterpolationPosition(String view, double v, double v1, double v2, int x1, int x2) {
-        int boundary =113;
+        int boundary = 113;
         if (view.equals("top")) {
             boundary = 112;
         } else {
             boundary = 255;
         }
-        double exactZ = x1 + (x2 - x1) * ((v - v1)/(v2 - v1));
-        return exactZ > 0 && exactZ < boundary? exactZ : 0;
+        double exactZ = x1 + (x2 - x1) * ((v - v1) / (v2 - v1));
+        return exactZ > 0 && exactZ < boundary ? exactZ : 0;
     }
 
     /**
      * The default transfer function for the default dataset. Calculates pixel colour from a
      * voxel.
+     *
      * @param voxel The voxel to get RGB value for.
      * @return The RGB and opacity value for the pixel.
      */
@@ -398,6 +401,7 @@ public class CTViewer {
     /**
      * The second transfer function for the visible human dataset. Calculates pixel colour from a
      * voxel.
+     *
      * @param voxel The voxel to get RGB value for.
      * @return The RGB and opacity value for the pixel.
      */
@@ -417,7 +421,7 @@ public class CTViewer {
         return new double[]{R, G, B, O};
     }
 
-    private double[] transferFunctionTent(short voxel){
+    private double[] transferFunctionTent(short voxel) {
         double R, G, B, O, levWidth;
         levWidth = 0.8;
         if ((voxel >= threshold) &&
@@ -425,26 +429,26 @@ public class CTViewer {
             O = ((float) voxel - threshold) / levWidth;
         } else if (voxel < threshold) {
             O = 0.0;
-        }else{
+        } else {
             O = opacity;
         }
         if ((voxel > -299) && (voxel < 50)) {
             R = 1.0;
             G = 0.79;
             B = 0.6;
-        }else if (voxel > 300) {
+        } else if (voxel > 300) {
             R = 1;
             G = 1;
             B = 1;
-        }else {
+        } else {
             R = 0;
             G = 0;
             B = 0;
         }
         return new double[]{R, G, B, O};
     }
-    public VJAlphaColor alphacolor(int index, double gradientMag)
-    {
+
+    public ColorComposer alphacolor(int index, double gradientMag) {
         double nrMagnitudeBits = 7347825;
         int nrIntensityBits = 3365;
         int maskMagnitude = (int) Math.pow(2, nrMagnitudeBits) - 1;
@@ -455,14 +459,14 @@ public class CTViewer {
         int igradient = (int) (gradientMag * fractionMagnitude) & maskMagnitude;
         // Fit gradient magnitude and intensity into 16 bits.
         int entry = (igradient << nrIntensityBits) | index;
-        return new VJAlphaColor(1.0,
-                (lut[index*3+0]&0xff),
-                (lut[index*3+1]&0xff),
-                (lut[index*3+2]&0xff));
+        return new ColorComposer(1.0,
+                (lut[index * 3 + 0] & 0xff),
+                (lut[index * 3 + 1] & 0xff),
+                (lut[index * 3 + 2] & 0xff));
     }
 
-    private double[] transferFunction2D(short voxel, double dfxi){
-        double R = 0, G = 0, B=0, O, levWidth;
+    private double[] transferFunction2D(short voxel, double dfxi) {
+        double R = 0, G = 0, B = 0, O, levWidth;
         levWidth = 2;
         if (dfxi == 0 && voxel == threshold) {
             O = 1.0;
@@ -476,72 +480,76 @@ public class CTViewer {
                 R = alphacolor((int) Math.abs(voxel / threshold), dfxi).getRed();
                 B = alphacolor((int) Math.abs(voxel / threshold), dfxi).getBlue();
                 G = alphacolor((int) Math.abs(voxel / threshold), dfxi).getGreen();
-            }catch (Exception e){
+            } catch (Exception e) {
                 System.out.println("Error");
             }
-        }else{
+        } else {
             return hounsefieldColorTF(voxel, O);
         }
         return new double[]{R, G, B, O};
     }
 
-    private double[] hounsefieldColorTF(short voxel, double opacity){
-        double R = 0, G = 0, B=0;
+    private double[] hounsefieldColorTF(short voxel, double opacity) {
+        double R = 0, G = 0, B = 0;
         if ((voxel > -299) && (voxel < 50)) {
             R = 1.0;
             G = 0.79;
             B = 0.6;
-        }else if (voxel > 300) {
+        } else if ((voxel > 49) && (voxel < 301)) {
             R = 1;
             G = 1;
             B = 1;
-        }else {
+        } else if (voxel > 300) {
+            R = 1;
+            G = 1;
+            B = 1;
+        } else {
             R = 0;
             G = 0;
             B = 0;
         }
-        double[] colors = {R,G,B,opacity};
+        double[] colors = {R, G, B, opacity};
         return colors;
     }
 
-    private double[] transferFunction3D(short voxel, double dfxi, double secondDerivative){
-        double R =0, G=0, B=0, O, levWidth;
+    private double[] transferFunction3D(short voxel, double dfxi, double secondDerivative) {
+        double R = 0, G = 0, B = 0, O, levWidth;
         levWidth = 2;
         if (dfxi == 0 && voxel == threshold) {
             O = 1.0;
         } else if (dfxi > 0 && voxel >= (threshold - levWidth * dfxi) && voxel <= (threshold + levWidth * dfxi)) {
-            O = (1 - (1 / levWidth) * (1/(secondDerivative)) * Math.abs((threshold - voxel) / dfxi));
+            O = (1 - (1 / levWidth) * (1 / (secondDerivative)) * Math.abs((threshold - voxel) / dfxi));
         } else {
             O = 0.0;
         }
         if (tfColor) {
             try {
-                R = alphacolor((int) Math.abs(voxel / 10), secondDerivative).getRed();
-                B = alphacolor((int) Math.abs(voxel / 10), secondDerivative).getBlue();
-                G = alphacolor((int) Math.abs(voxel / 10), secondDerivative).getGreen();
-            }catch (Exception e){
+                R = alphacolor((int) Math.abs(voxel / 10), dfxi).getRed();
+                B = alphacolor((int) Math.abs(voxel / 10), dfxi).getBlue();
+                G = alphacolor((int) Math.abs(voxel / 10), dfxi).getGreen();
+            } catch (Exception e) {
                 R = 1;
                 B = 1;
                 G = 1;
             }
-        }else{
+        } else {
             return hounsefieldColorTF(voxel, O);
         }
         return new double[]{R, G, B, O};
     }
 
 
-
     /**
      * Handles which transfer function to use based on the name passed in.
-     * @param voxel The voxel to use in the transfer function.
+     *
+     * @param voxel  The voxel to use in the transfer function.
      * @param tfName The name of the transfer function to use.
      * @return The result from specified TF.
      */
-    private double[] getTransferFunction(short voxel, String tfName, double dfxi, double secondDerivative){
-        if (tfName.equals("TF1")){
+    private double[] getTransferFunction(short voxel, String tfName, double dfxi, double secondDerivative) {
+        if (tfName.equals("TF1")) {
             return transferFunctionTent(voxel);
-        } else if (tfName.equals("TF2")){
+        } else if (tfName.equals("TF2")) {
             return transferFunction2D(voxel, dfxi);
         } else {
             return transferFunction3D(voxel, dfxi, secondDerivative);
@@ -551,17 +559,24 @@ public class CTViewer {
 
     /**
      * Sets the opacity of the skin for the transfer function.
+     *
      * @param opacity The opacity of the skin.
      */
     public void setOpacity(double opacity) {
         this.opacity = opacity;
     }
-    public void changeColor(){tfColor = !this.tfColor;}
 
-    public void setTreshold(double treshold){this.threshold = treshold;}
+    public void changeColor() {
+        tfColor = !this.tfColor;
+    }
+
+    public void setTreshold(double treshold) {
+        this.threshold = treshold;
+    }
 
     /**
      * Sets if gradient shading should be used.
+     *
      * @param isGradient If gradient shading should be used.
      */
     public void setGradientShading(boolean isGradient) {
@@ -570,6 +585,7 @@ public class CTViewer {
 
     /**
      * Gets if gradient shading should be used.
+     *
      * @return If gradient shading should be used.
      */
     public boolean getGradientShading() {
@@ -578,6 +594,7 @@ public class CTViewer {
 
     /**
      * Sets if gradient shading interpolation should be used.
+     *
      * @param isGradientInterpolation If interpolation should be used.
      */
     public void setGradientInterpolation(boolean isGradientInterpolation) {
@@ -586,6 +603,7 @@ public class CTViewer {
 
     /**
      * Gets if gradient shading should be used.
+     *
      * @return If gradient shading should be used.
      */
     public boolean getGradientInterpolation() {
@@ -594,6 +612,7 @@ public class CTViewer {
 
     /**
      * Gets the width of the top image.
+     *
      * @return The width of the top image.
      */
     public int getTop_width() {
@@ -602,6 +621,7 @@ public class CTViewer {
 
     /**
      * Gets the height of the top image.
+     *
      * @return The height of the top image.
      */
     public int getTop_height() {
@@ -610,6 +630,7 @@ public class CTViewer {
 
     /**
      * Gets the width of the front image.
+     *
      * @return The width of the front image.
      */
     public int getFront_width() {
@@ -618,6 +639,7 @@ public class CTViewer {
 
     /**
      * Gets the height of the front image.
+     *
      * @return The height of the front image.
      */
     public int getFront_height() {
@@ -626,6 +648,7 @@ public class CTViewer {
 
     /**
      * Gets the width of the side image.
+     *
      * @return The width of the side image.
      */
     public int getSide_width() {
@@ -634,6 +657,7 @@ public class CTViewer {
 
     /**
      * Gets the height of the side image.
+     *
      * @return The height of the side image.
      */
     public int getSide_height() {
@@ -642,6 +666,7 @@ public class CTViewer {
 
     /**
      * Sets the location of the light source along the X axis.
+     *
      * @param position The location along the X axis.
      */
     public void setLightSourceX(int position) {

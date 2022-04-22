@@ -31,7 +31,6 @@
                         <Insets bottom="10.0" />
                      </VBox.margin>
                   </Slider>
-                  <Label text="Tent Controller" textFill="#aeaeae" />
                   <Button fx:id="midSlideButton" mnemonicParsing="false" prefHeight="27.0" prefWidth="250.0" style="-fx-padding: 10;" text="Default Values" textFill="#aeaeae" VBox.vgrow="ALWAYS">
                      <font>
                         <Font name="System Bold" size="13.0" />
@@ -57,14 +56,6 @@
                   </Label>
                </HBox>
                <VBox maxHeight="-Infinity" maxWidth="-Infinity">
-                  <Button fx:id="mipButton" mnemonicParsing="false" prefHeight="27.0" prefWidth="250.0" style="-fx-padding: 10;" text="Gradient Magnitude- Intensity" textFill="#aeaeae" VBox.vgrow="ALWAYS">
-                     <VBox.margin>
-                        <Insets bottom="10.0" />
-                     </VBox.margin>
-                     <font>
-                        <Font name="System Bold" size="13.0" />
-                     </font>
-                  </Button>
                   <Button fx:id="volumeRenderButton" mnemonicParsing="false" prefHeight="27.0" prefWidth="250.0" style="-fx-padding: 10;" text="Volume Render" textFill="#aeaeae" VBox.vgrow="ALWAYS">
                      <VBox.margin>
                         <Insets bottom="10.0" />

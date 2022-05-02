@@ -34,7 +34,8 @@ public class tfViewer {
     float maxMagnitude = (float) 5828.351;
     float fractionMagnitude = (float) Math.pow(2, nrMagnitudeBits) / maxMagnitude;
     private boolean color;
-    private Volume v = new Volume(0,0,0);
+    private double angle;
+    private Volume v = new Volume(256,256,113);
     private VolumeRender volumeRender = new VolumeRender(v);
 
     public tfViewer(){
@@ -101,6 +102,229 @@ public class tfViewer {
 
     }
 
+    public double[][] transformMatrix(double radians) {
+        double[][] transform = new double[3][3];
+        // Build transform matrix.
+        for (int j=0; j<3; j++) {
+            for (int i=0; i<3; i++) {
+                transform[j][i] = 0;
+                if (j == 0 && i == 0) {
+                    transform[j][i] = Math.cos(radians);
+                } else if (j == 0 && i == 1) {
+                    transform[j][i] = -1 * Math.sin(radians);
+                } else if (j == 1 && i == 0) {
+                    transform[j][i] = Math.sin(radians);
+                } else if (j == 1 && i == 1) {
+                    transform[j][i] = Math.cos(radians);
+                } else if (j == 2 && i == 2) {
+                    transform[j][i] = 1;
+                }
+            }
+        }
+        return transform;
+    }
+
+    public short[][][] rotateData(double angle) {
+        try {
+            ReadData();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        // Make a larger size as 45 degrees takes up the most space.
+        int largeX = (CT_x_axis-1)*2+1;
+        int largeY = (CT_y_axis-1)*2+1;
+        int largeZ = (CT_z_axis-1)*2+1;
+        short[][][] newData = new short[largeZ][largeY][largeX];
+        int xShift = 0;
+        int yShift = 0;
+        double radians = Math.toRadians(angle);
+        System.out.println("Angle of rotation: " + angle);
+        if (angle >= 0 && angle <= 90) {
+            xShift = CT_x_axis - 1;
+            yShift = 0;
+        } else if (angle > 90 && angle <= 180) {
+            xShift = 360;
+            yShift = CT_y_axis - 1;
+        } else if (angle > 180 && angle <= 270) {
+            xShift = CT_x_axis - 1;
+            yShift = 360;
+        } else if (angle > 270 && angle <= 360) {
+            xShift = 0;
+            yShift = CT_y_axis - 1;
+        }
+
+        // Initialise all values of newData with -999.
+        for (int k=0; k<CT_z_axis; k++) {
+            for (int j=0; j<largeY; j++) {
+                for (int i=0; i<largeX; i++) {
+                    newData[k][j][i] = -999;
+                }
+            }
+        }
+
+        // Build transform matrix.
+        double[][] transform = transformMatrix(radians);
+
+        // Shift each voxel to its transformed index.
+        for (int k=0; k<CT_z_axis; k++){
+            for (int j=0; j<CT_y_axis; j++) {
+                for (int i=0; i<CT_x_axis; i++) {
+                    // Result of dot product.
+                    int zIndex = 0;
+                    int yIndex = 0;
+                    int xIndex = 0;
+                    int[] coordinates = new int[]{i, j, k};
+                    // Product of transform matrix and coordinates matrix.
+                    for (int a=0; a<3; a++) {
+                        if (a == 0) {
+                            for (int b = 0; b < 3; b++) {
+                                xIndex += coordinates[b] * transform[a][b];
+                            }
+                        } else if (a == 1) {
+                            for (int b = 0; b < 3; b++) {
+                                yIndex += coordinates[b] * transform[a][b];
+                            }
+                        } else {
+                            for (int b = 0; b < 3; b++) {
+                                zIndex += coordinates[b] * transform[a][b];
+                            }
+                        }
+                    }
+                    //System.out.println(i + " " + j + " " + k);
+                    //System.out.println("New: " + xIndex + " " + yIndex + " " + zIndex);
+                    // Map transformed index to data at original index.
+                    newData[zIndex][yIndex + yShift][xIndex + xShift] = cthead[k][j][i];
+                }
+            }
+        }
+        return newData;
+    }
+
+    // Volume rendering for front back.
+    public void FrontRotate(WritableImage image, double angle, double threshold) {
+        //Get image dimensions, and declare loop variables
+        int w=(int) image.getWidth(), h=(int) image.getHeight();
+        PixelWriter image_writer = image.getPixelWriter();
+
+        short datum;
+        Double[][][] colours = initializeColours(h, w);
+
+        short[][][] newData = rotateData(angle);
+
+        for (int k=1; k<(CT_y_axis - 1)*2 - 1; k++){
+            for (int j=1; j<h-1; j++) {
+                for (int i=1; i<w-1; i++) {
+                    datum = newData[j][k][i];
+                    double dfxi = gradientMagnitude(newData, j,k,i);
+                    double[] rgbValues = volumeRender.transferFunction2D(datum, dfxi, threshold);
+                    // [r, g, b, opacity]
+                    if (rgbValues[3] == 1) {
+                        break;
+                    }
+                    for (int a = 0; a < 3; a ++) {
+                        // color * accumulated transparency * opacity
+                        colours[j][i][a] += (rgbValues[a] * colours[j][i][3] * rgbValues[3]);
+                    }
+                    // Set accumulated transparency.
+                    colours[j][i][3] *= (1 - rgbValues[3]);
+                }
+            }
+        }
+        setImageWriter(image_writer, h, w, colours);
+    }
+
+    // Volume rendering for top down.
+    public void TopRotate(WritableImage image, double angle) {
+        //Get image dimensions, and declare loop variables
+        int w=(int) image.getWidth(), h=(int) image.getHeight();
+        PixelWriter image_writer = image.getPixelWriter();
+
+        short datum;
+        Double[][][] colours = initializeColours(h, w);
+
+        short[][][] newData = rotateData(angle);
+
+        for (int k=0; k<CT_z_axis; k++){
+            for (int j=0; j<h; j++) {
+                for (int i=0; i<w; i++) {
+                    datum = newData[k][j][i];
+                    double[] rgbValues = volumeRender.hounsefieldColorTF(datum,0.12);
+                    // [r, g, b, opacity]
+                    if (rgbValues[3] == 1) {
+                        break;
+                    }
+                    for (int a = 0; a < 3; a ++) {
+                        // color * accumulated transparency * opacity
+                        colours[j][i][a] += (rgbValues[a] * colours[j][i][3] * rgbValues[3]);
+                    }
+                    // Set accumulated transparency.
+                    colours[j][i][3] *= (1 - rgbValues[3]);
+                }
+            }
+        }
+        setImageWriter(image_writer, h, w, colours);
+    }
+
+    // Volume rendering for left right.
+    public void SideRotate(WritableImage image, double angle) {
+        //Get image dimensions, and declare loop variables
+        int w=(int) image.getWidth(), h=(int) image.getHeight();
+        PixelWriter image_writer = image.getPixelWriter();
+
+        short datum;
+        Double[][][] colours = initializeColours(h, w);
+
+        short[][][] newData = rotateData(angle);
+
+        for (int k=0; k<(CT_x_axis - 1) * 2; k++){
+            for (int j=0; j<h; j++) {
+                for (int i=0; i<w; i++) {
+                    datum = newData[j][i][k];
+                    double[] rgbValues = volumeRender.hounsefieldColorTF(datum, 0.12);
+                    // [r, g, b, opacity]
+                    if (rgbValues[3] == 1) {
+                        break;
+                    }
+                    for (int a = 0; a < 3; a ++) {
+                        // color * accumulated transparency * opacity
+                        colours[j][i][a] += (rgbValues[a] * colours[j][i][3] * rgbValues[3]);
+                    }
+                    // Set accumulated transparency.
+                    colours[j][i][3] *= (1 - rgbValues[3]);
+                }
+            }
+        }
+        setImageWriter(image_writer, h, w, colours);
+    }
+
+    public Double[][][] initializeColours(int h, int w) {
+        Double[][][] colours = new Double[h][w][4];
+        // Initialize array with [0, 0, 0, 1].
+        for (int j=0; j<h; j++) {
+            for (int i=0; i<w; i++) {
+                for (int a = 0; a < 3; a ++) {
+                    colours[j][i][a] = 0.0;
+                }
+                colours[j][i][3] = 1.0;
+            }
+        }
+
+        return colours;
+    }
+
+    public void setImageWriter(PixelWriter image_writer, int h, int w, Double[][][] colours) {
+        for (int j=0; j<h; j++) {
+            for (int i=0; i<w; i++) {
+                image_writer.setColor(i, j, Color.color(
+                        Math.min(1.0, colours[j][i][0]),
+                        Math.min(1.0, colours[j][i][1]),
+                        Math.min(1.0, colours[j][i][2]),
+                        1.0
+                ));
+            }
+        }
+    }
+
     public void resizePopUp(WritableImage image, int scaling) {
         Stage window = new Stage();
         ImageView resizedImage = new ImageView(biLinear(image, scaling));
@@ -113,12 +337,12 @@ public class tfViewer {
         window.show();
     }
 
-    public float gradientMagnitude(int k, int j, int i) {
+    public float gradientMagnitude(short[][][] volume, int k, int j, int i) {
 
-        float I = (float) Math.pow((cthead[k][j][i + 1] - cthead[k][j][i - 1]), 2);
-        float J = (float) Math.pow((cthead[k][j + 1][i] - cthead[k][j - 1][i]), 2);
+        float I = (float) Math.pow((volume[k][j][i + 1] - volume[k][j][i - 1]), 2);
+        float J = (float) Math.pow((volume[k][j + 1][i] - volume[k][j - 1][i]), 2);
         //Dx
-        float K = (float) Math.pow((cthead[k + 1][j][i] - cthead[k - 1][j][i]), 2);
+        float K = (float) Math.pow((volume[k + 1][j][i] - volume[k - 1][j][i]), 2);
         float gradientM = (float) (sqrt(I + J + K));
         return gradientM;
     }
@@ -173,7 +397,7 @@ public class tfViewer {
                 image_writer.setColor(j, k, Color.color(0, 0, 0, 1.0));
                 for (int i = 1; i < 254; i++) {
                     int intensity = cthead[k][j][i];
-                    double dfxi = gradientMagnitude(k, j, i);
+                    double dfxi = gradientMagnitude(cthead, k, j, i);
                     if (dfxi == 0 && intensity == threshold) {
                         opacity = 1.0;
                     } else if (dfxi > 0 &&
@@ -217,7 +441,7 @@ public class tfViewer {
                 for (int i = 1; i < 254; i++) {
                     int intensity = cthead[k][j][i];
                     int laplacian = secondDerivative(k, j, i);
-                    double dfxi = gradientMagnitude(k, j, i);
+                    double dfxi = gradientMagnitude(cthead, k, j, i);
                     if (dfxi == 0 && laplacian == threshold) {
                         opacity = 1.0;
                     } else if (dfxi > 0 &&
@@ -261,7 +485,7 @@ public class tfViewer {
                 image_writer.setColor(i, k, Color.color(0, 0, 0, 1.0));
                 for (int j = 1; j < 254; j++) {
                     int intensity = cthead[k][j][i];
-                    double gradient = gradientMagnitude(k, j, i);
+                    double gradient = gradientMagnitude(cthead, k, j, i);
                     if (gradient == 0 && intensity == threshold) {
                         opacity = 1.0;
                     } else if (gradient > 0 &&
@@ -306,7 +530,7 @@ public class tfViewer {
                 image_writer.setColor(i, j, Color.color(0, 0, 0, 1.0));
                 for (int k = 1; k < 112; k++) {
                     int intensity = cthead[k][j][i];
-                    double dfxi = gradientMagnitude(k, j, i);
+                    double dfxi = gradientMagnitude(cthead, k, j, i);
                     if (dfxi == 0 && intensity == threshold) {
                         opacity = 1.0;
                     } else if (dfxi > 0 &&
@@ -344,6 +568,7 @@ public class tfViewer {
         PixelReader reader = image.getPixelReader();	//Reading from original image
 
         for (int x=0; x< finalWidth; x++){
+            // zero indexed real position in the src image
             double pixelX = (double) x / finalWidth * (width-1);
             for(int y=0; y<finalHeight; y++){
                 double pixelY = (double)y / finalHeight * (height-1);
@@ -369,5 +594,12 @@ public class tfViewer {
         return newImage;
     }
 
+    public double getAngle() {
+        return angle;
     }
+
+    public void setAngle(double angle) {
+        this.angle = angle;
+    }
+}
 

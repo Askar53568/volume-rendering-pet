@@ -27,6 +27,7 @@ public class ViewerController {
     public ImageView secondView;
     //third image view
     public ImageView thirdView;
+    public ImageView resizedView;
     // 1D transfer function slider
     public Slider firstSlider;
     // 2D transfer function slider
@@ -63,6 +64,7 @@ public class ViewerController {
     public ChoiceBox<String> tfChoice;
     //scroll pane
     public ScrollPane scrollPane;
+    public Slider widthSlider;
 
     //stage
     private Stage stage;
@@ -81,6 +83,8 @@ public class ViewerController {
     WritableImage front_image;
     //volume view from the side
     WritableImage side_image;
+    //resized image
+    WritableImage resized_image;
 
     /**
      * Initialises UI elements to be ready for display.
@@ -89,6 +93,7 @@ public class ViewerController {
         top_image = new WritableImage(volumeRender.getTop_width(), volumeRender.getTop_height());
         front_image = new WritableImage(volumeRender.getFront_width(), volumeRender.getFront_height());
         side_image = new WritableImage(volumeRender.getSide_width(), volumeRender.getSide_height());
+        resized_image = new WritableImage(511, 133);
 
         Menu menu = new Menu(stage);
         menuPane.getChildren().add(menu.getRoot());
@@ -98,12 +103,14 @@ public class ViewerController {
         firstView.setImage(top_image);
         secondView.setImage(front_image);
         thirdView.setImage(side_image);
+        //resizedView.setImage(resized_image);
 
 
-        firstSlider.setMax(4500);
+        firstSlider.setMax(113);
         thresholdSlider.setMax(4500);
         thresholdSlider.setMin(-1000);
-        secondSlider.setMax(4500);
+        secondSlider.setMax(256);
+        widthSlider.setValue(2);
 
 
         tfChoice.getItems().add("TF1");
@@ -120,8 +127,10 @@ public class ViewerController {
 
         baseMenuButton.setOnAction(event -> {
             reset();
-            firstSlider.valueProperty().setValue(1000);
-            secondSlider.valueProperty().setValue(0);
+            firstSlider.valueProperty().setValue(76);
+            secondSlider.valueProperty().setValue(76);
+            widthSlider.valueProperty().setValue(2);
+
         });
 
         /*
@@ -155,14 +164,9 @@ public class ViewerController {
           Set the second view slider to input threshold values for the gradient magnitude - intensity transfer function
          */
         firstSlider.valueProperty().addListener((observable, oldValue, newValue) -> {
-            try {
-                tfViewer.opacityComputeFront(front_image, newValue.doubleValue());
-                tfViewer.opacityComputeSideNoReturn(side_image, newValue.doubleValue());
-                tfViewer.opacityComputeTop(top_image, newValue.doubleValue());
-                reset();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            volumeRender.drawSlice(top_image, "top", newValue.intValue());
+            //tfViewer.FrontRotate(resized_image,secondSlider.getValue(), newValue.doubleValue());
+            reset();
             setSliderStyle(firstSlider);
             reset();
         });
@@ -171,10 +175,13 @@ public class ViewerController {
          */
         secondSlider.valueProperty().addListener((observable, oldValue, newValue) -> {
             try {
-                tfViewer.laplacianSide(side_image, newValue.doubleValue());
-            } catch (IOException e) {
-                e.printStackTrace();
+                volumeRender.drawSlice(front_image, "front", newValue.intValue());
+                volumeRender.drawSlice(side_image, "side", newValue.intValue());
+            }catch(ArrayIndexOutOfBoundsException e){
+
             }
+            //tfViewer.setAngle(newValue.doubleValue());
+            //tfViewer.FrontRotate(resized_image, newValue.doubleValue(),firstSlider.getValue());
             setSliderStyle(secondSlider);
             reset();
         });
@@ -185,6 +192,11 @@ public class ViewerController {
             volumeRender.setOpacity((double) (newValue) / 100.0);
             volumeRender();
             setSliderStyle(opacitySlider);
+        });
+        widthSlider.valueProperty().addListener((observable, oldValue, newValue) -> {
+            volumeRender.setWidth((double) (newValue));
+            volumeRender();
+            setSliderStyle(widthSlider);
         });
         /*
           Set the threshold for all 3 transfer function

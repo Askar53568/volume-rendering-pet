@@ -39,7 +39,8 @@ public class VolumeRender {
     //light source x-axis
     private double lightX = 83;
     //threshold slider variable
-    private double threshold = 1000.0;
+    private double threshold = 800.0;
+    private double levWidth;
 
     /**
      * Creates a CT viewer.
@@ -142,11 +143,11 @@ public class VolumeRender {
                         final int GREEN = 1;
                         final int BLUE = 2;
                         double gradientMagnitude = 0.0;
-                        if(tfColor) {
+//                        if(tfColor) {
                             gradientMagnitude = getSurfaceNormal(view, i, j, k, height, width, depth).getLength();
-                        } else{
-                            gradientMagnitude = getExactGradient(view, currentVoxel, i, j, k, height, width, depth);
-                        }
+//                        } else{
+//                            gradientMagnitude = getExactGradient(view, currentVoxel, i, j, k, height, width, depth);
+//                        }
                         double secondDerivative = getSecondOrderDerivative(view, i, j, k);
                         double[] colour = getTransferFunction(currentVoxel, transferFunction, gradientMagnitude, secondDerivative);
                         double sigma = colour[3];
@@ -433,9 +434,8 @@ public class VolumeRender {
      * @param voxel voxel to find the RGBA values for
      * @return RGBA values for the specified voxel
      */
-    private double[] transferFunctionTent(short voxel) {
-        double R, G, B, O, levWidth;
-        levWidth = 0.8;
+    public double[] transferFunctionTent(short voxel, double threshold) {
+        double R, G, B, O;
         if ((voxel >= threshold) &&
                 (voxel < (threshold + levWidth))) {
             O = ((float) voxel - threshold) / levWidth;
@@ -444,19 +444,9 @@ public class VolumeRender {
         } else {
             O = opacity;
         }
-        if ((voxel > -299) && (voxel < 50)) {
-            R = 1.0;
-            G = 0.79;
-            B = 0.6;
-        } else if (voxel > 300) {
             R = 1;
             G = 1;
             B = 1;
-        } else {
-            R = 0;
-            G = 0;
-            B = 0;
-        }
         return new double[]{R, G, B, O};
     }
 
@@ -489,28 +479,33 @@ public class VolumeRender {
      * @param gradientMagnitude gradient magnitude at a current position.
      * @return RGBA values for a specified pixel.
      */
-    private double[] transferFunction2D(short voxel, double gradientMagnitude) {
-        double R = 0, G = 0, B = 0, O, levWidth;
-        levWidth = 2;
+    public double[] transferFunction2D(short voxel, double gradientMagnitude, double threshold) {
+        double R = 0, G = 0, B = 0, O;
+        //levWidth = 200;
         if (gradientMagnitude == 0 && voxel == threshold) {
             O = 1.0;
+
         } else if (gradientMagnitude > 0 && voxel >= (threshold - levWidth * gradientMagnitude) && voxel <= (threshold + levWidth * gradientMagnitude)) {
             O = (1 - (1 / levWidth) * Math.abs((threshold - voxel) / gradientMagnitude));
+            R = 1;
+            B = 1;
+            G = 1;
         } else {
             O = 0.0;
         }
         //if color transfer function should be applied
-        if (tfColor) {
-            try {
-                R = colorClassifier(Math.abs(voxel / 10), gradientMagnitude).getRed();
-                B = colorClassifier(Math.abs(voxel / 10), gradientMagnitude).getBlue();
-                G = colorClassifier(Math.abs(voxel / 10), gradientMagnitude).getGreen();
-            } catch (Exception e) {
-                System.out.println("Error");
-            }
-        } else {
-            return hounsefieldColorTF(voxel, O);
-        }
+
+//        if (tfColor) {
+//            try {
+//                R = colorClassifier(Math.abs(voxel / 10), gradientMagnitude).getRed();
+//                B = colorClassifier(Math.abs(voxel / 10), gradientMagnitude).getBlue();
+//                G = colorClassifier(Math.abs(voxel / 10), gradientMagnitude).getGreen();
+//            } catch (Exception e) {
+//                System.out.println("Error");
+//            }
+//        } else {
+//            return hounsefieldColorTF(voxel, O);
+//        }
         return new double[]{R, G, B, O};
     }
 
@@ -520,7 +515,7 @@ public class VolumeRender {
      * @param opacity Opacity of the specific voxel derived from the alpha function
      * @return RGB values for the pixel.
      */
-    private double[] hounsefieldColorTF(short voxel, double opacity) {
+    public double[] hounsefieldColorTF(short voxel, double opacity) {
         double R = 0, G = 0, B = 0;
 
         if ((voxel > -299) && (voxel < 50)) {
@@ -553,30 +548,32 @@ public class VolumeRender {
      * @param secondDerivative the second derivative for the specified voxel
      * @return alpha value for the pixel.
      */
-    private double[] transferFunction3D(short voxel, double gradientMag, double secondDerivative) {
-        double R = 0, G = 0, B = 0, O, levWidth;
-        levWidth = 2;
+    public double[] transferFunction3D(short voxel, double gradientMag, double secondDerivative) {
+        double R = 0, G = 0, B = 0, O;
+        voxel = (short) (voxel+ secondDerivative);
         if (gradientMag == 0 && voxel == threshold) { //if 0 change detected at the threshold
-            O = 1.0;
+            O= 0.0;
         } else if (gradientMag > 0 && voxel >= (threshold - levWidth * gradientMag) && voxel <= (threshold + levWidth * gradientMag)) { //on the boundaries of the threshold
-            O = (1 - (1 / levWidth) * (1 / (secondDerivative)) * Math.abs((threshold - voxel) / gradientMag));
-        } else {
+            O = (1.0 -  (Math.abs((threshold - voxel) / gradientMag)));
+            R = 1;
+            B = 0.2;
+            G = 0.2;
+        } else if(( voxel <= -800 || voxel >= 1000) && (!isGradient)) {
             O = 0.0;
-        }
-        //if color transfer function should be applied
-        if (tfColor) {
-            try {
-                R = colorClassifier( Math.abs(voxel / 10), gradientMag).getRed();
-                B = colorClassifier( Math.abs(voxel / 10), gradientMag).getBlue();
-                G = colorClassifier( Math.abs(voxel / 10), gradientMag).getGreen();
-            } catch (Exception e) {
-                R = 1;
-                B = 1;
-                G = 1;
+        }else{
+            if (isGradient) {
+                O = opacity;
+            }else{
+                O = opacity/10;
             }
-            //apply regular 1D color transfer function
-        } else {
-            return hounsefieldColorTF(voxel, O);
+            R = 1;
+            B = 1;
+            G = 1;
+        }
+        if(!tfColor){
+            R = 1;
+            B = 1;
+            G = 1;
         }
         return new double[]{R, G, B, O};
     }
@@ -591,9 +588,9 @@ public class VolumeRender {
      */
     private double[] getTransferFunction(short voxel, String tfName, double dfxi, double secondDerivative) {
         if (tfName.equals("TF1")) {
-            return transferFunctionTent(voxel);
+            return transferFunctionTent(voxel, threshold);
         } else if (tfName.equals("TF2D")) {
-            return transferFunction2D(voxel, dfxi);
+            return transferFunction2D(voxel, dfxi, threshold);
         } else {
             return transferFunction3D(voxel, dfxi, secondDerivative);
         }
@@ -722,5 +719,9 @@ public class VolumeRender {
      */
     public void setLightX(int position) {
         this.lightX = position;
+    }
+
+    public void setWidth(double newValue) {
+        levWidth = newValue/50;
     }
 }
